@@ -1,0 +1,154 @@
+{
+  "name": "ValveResourceFormat",
+  "version": "1.0.0",
+  "description": "MCP server for interacting with Valve Source 2 resource formats",
+  "executable": "python",
+  "args": ["${ARGS}", "${CWD}/mcp_server.py"],
+  "env": {
+    "VRF_CLI_PATH": "${CWD}/../CLI/bin/Release/net10.0/win-x64/CLI.exe"
+  },
+  "tools": [
+    {
+      "name": "inspect_file",
+      "description": "Inspect a Source 2 resource file and return detailed information about its structure, blocks, and data.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "file_path": {
+            "type": "string",
+            "description": "Path to the resource file to inspect"
+          }
+        },
+        "required": ["file_path"]
+      }
+    },
+    {
+      "name": "list_vpk_contents",
+      "description": "List all files in a VPK (Valve Package) archive, with optional filtering by extension or path.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "vpk_path": {
+            "type": "string",
+            "description": "Path to the VPK file"
+          },
+          "extension_filter": {
+            "type": "string",
+            "description": "Comma-separated list of extensions to filter (e.g., 'vmdl,vmat')"
+          },
+          "path_filter": {
+            "type": "string",
+            "description": "Path prefix to filter (e.g., 'models/')"
+          }
+        },
+        "required": ["vpk_path"]
+      }
+    },
+    {
+      "name": "decompile_resource",
+      "description": "Decompile a Source 2 resource file to its raw, human-readable format.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "input_path": {
+            "type": "string",
+            "description": "Path to the resource file to decompile"
+          },
+          "output_path": {
+            "type": "string",
+            "description": "Optional output path for the decompiled file"
+          }
+        },
+        "required": ["input_path"]
+      }
+    },
+    {
+      "name": "export_gltf",
+      "description": "Export a 3D model (.vmdl) to glTF/glb format for viewing in other tools.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "model_path": {
+            "type": "string",
+            "description": "Path to the model file (.vmdl)"
+          },
+          "output_path": {
+            "type": "string",
+            "description": "Path for the output glTF/glb file"
+          },
+          "include_animations": {
+            "type": "boolean",
+            "description": "Whether to include animations in the export",
+            "default": true
+          },
+          "include_materials": {
+            "type": "boolean",
+            "description": "Whether to include materials in the export",
+            "default": true
+          }
+        },
+        "required": ["model_path", "output_path"]
+      }
+    },
+    {
+      "name": "extract_texture",
+      "description": "Extract a texture (.vtex) to an image file (PNG/TGA).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "texture_path": {
+            "type": "string",
+            "description": "Path to the texture file (.vtex)"
+          },
+          "output_path": {
+            "type": "string",
+            "description": "Path for the output image file"
+          },
+          "decode_flags": {
+            "type": "string",
+            "description": "Decode flags: 'none', 'auto', or 'focused'",
+            "default": "auto"
+          }
+        },
+        "required": ["texture_path", "output_path"]
+      }
+    },
+    {
+      "name": "get_file_info",
+      "description": "Get basic information about a file (size, type, extension).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "file_path": {
+            "type": "string",
+            "description": "Path to the file"
+          }
+        },
+        "required": ["file_path"]
+      }
+    },
+    {
+      "name": "list_directory_resources",
+      "description": "List all Source 2 resource files in a directory, with optional filtering.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "directory": {
+            "type": "string",
+            "description": "Path to the directory to scan"
+          },
+          "extension_filter": {
+            "type": "string",
+            "description": "Comma-separated list of extensions to include"
+          },
+          "recursive": {
+            "type": "boolean",
+            "description": "Whether to scan subdirectories recursively",
+            "default": false
+          }
+        },
+        "required": ["directory"]
+      }
+    }
+  ]
+}

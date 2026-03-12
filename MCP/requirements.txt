@@ -1,0 +1,4 @@
+# ValveResourceFormat MCP Server Requirements
+
+# Core requirements
+pydantic>=2.0.0

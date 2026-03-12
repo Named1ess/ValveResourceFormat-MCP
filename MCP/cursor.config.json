@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "vrf": {
+      "command": "python",
+      "args": ["${workspace}/MCP/mcp_server.py"],
+      "env": {
+        "VRF_CLI_PATH": "${workspace}/CLI/bin/Release/Source2Viewer-CLI.exe"
+      }
+    }
+  }
+}
