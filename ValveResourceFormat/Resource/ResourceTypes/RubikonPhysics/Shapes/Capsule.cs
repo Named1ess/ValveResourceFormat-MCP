@@ -22,7 +22,7 @@ namespace ValveResourceFormat.ResourceTypes.RubikonPhysics.Shapes
         /// </summary>
         public Capsule(KVObject data)
         {
-            Center = [.. data.GetArray("m_vCenter").Select(v => v.ToVector3())];
+            Center = data.GetArray("m_vCenter").Select(v => v.ToVector3()).ToArray();
             Radius = data.GetFloatProperty("m_flRadius");
         }
     }

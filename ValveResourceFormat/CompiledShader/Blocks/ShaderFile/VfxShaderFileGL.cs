@@ -39,6 +39,6 @@ public class VfxShaderFileGL : VfxShaderFile
     /// </remarks>
     public override string GetDecompiledFile()
     {
-        return Encoding.UTF8.GetString(Bytecode);
+        return Encoding.UTF8.GetString(this.Bytecode);
     }
 }

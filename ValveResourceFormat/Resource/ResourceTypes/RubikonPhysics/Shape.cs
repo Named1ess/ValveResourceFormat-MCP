@@ -38,7 +38,8 @@ namespace ValveResourceFormat.ResourceTypes.RubikonPhysics
             Capsules = LoadShapeDescriptorArray<CapsuleDescriptor, Shapes.Capsule>(data, "m_capsules");
             Hulls = LoadShapeDescriptorArray<HullDescriptor, Shapes.Hull>(data, "m_hulls");
             Meshes = LoadShapeDescriptorArray<MeshDescriptor, Shapes.Mesh>(data, "m_meshes");
-            CollisionAttributeIndices = [.. data.GetArray<object>("m_CollisionAttributeIndices")!.Select(Convert.ToInt32)];
+            CollisionAttributeIndices = data.GetArray<object>("m_CollisionAttributeIndices")!
+                .Select(Convert.ToInt32).ToArray();
         }
 
         private static TDescriptor[] LoadShapeDescriptorArray<TDescriptor, TShape>(KVObject data, string name)

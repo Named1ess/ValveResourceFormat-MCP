@@ -187,9 +187,13 @@ namespace ValveResourceFormat.ResourceTypes
 
             Texture = (Texture)TextureResource.DataBlock;
 
-            FlexRules = [.. GetMorphKeyValueCollection(Data, "m_FlexRules").Select(kv => ParseFlexRule(kv.Value))];
+            FlexRules = GetMorphKeyValueCollection(Data, "m_FlexRules")
+                .Select(kv => ParseFlexRule(kv.Value))
+                .ToArray();
 
-            FlexControllers = [.. GetMorphKeyValueCollection(Data, "m_FlexControllers").Select(kv => ParseFlexController(kv.Value))];
+            FlexControllers = GetMorphKeyValueCollection(Data, "m_FlexControllers")
+                .Select(kv => ParseFlexController(kv.Value))
+                .ToArray();
         }
 
         private static FlexController ParseFlexController(object obj)

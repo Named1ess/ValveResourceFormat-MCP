@@ -38,7 +38,7 @@ namespace ValveResourceFormat.ResourceTypes
 
                 Resources =
                 [
-                    [.. ntro.Output.GetArray<string>("m_ResourceFileNameList")!],
+                    new(ntro.Output.GetArray<string>("m_ResourceFileNameList")!),
                 ];
 
                 return;
