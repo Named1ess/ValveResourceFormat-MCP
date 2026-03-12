@@ -70,11 +70,11 @@ namespace ValveResourceFormat.Blocks
                 }
             }
 
-            ReadItems(kv3, InputDependencies, "m_InputDependencies", static (KVObject data) => new InputDependency(data));
-            ReadItems(kv3, AdditionalInputDependencies, "m_AdditionalInputDependencies", static (KVObject data) => new InputDependency(data));
-            ReadItems(kv3, ArgumentDependencies, "m_ArgumentDependencies", static (KVObject data) => new ArgumentDependency(data));
-            ReadItems(kv3, SpecialDependencies, "m_SpecialDependencies", static (KVObject data) => new SpecialDependency(data));
-            ReadItems(kv3, AdditionalRelatedFiles, "m_AdditionalRelatedFiles", static (KVObject data) => new AdditionalRelatedFile(data));
+            ReadItems(kv3, InputDependencies, "m_InputDependencies", static data => new InputDependency(data));
+            ReadItems(kv3, AdditionalInputDependencies, "m_AdditionalInputDependencies", static data => new InputDependency(data));
+            ReadItems(kv3, ArgumentDependencies, "m_ArgumentDependencies", static data => new ArgumentDependency(data));
+            ReadItems(kv3, SpecialDependencies, "m_SpecialDependencies", static data => new SpecialDependency(data));
+            ReadItems(kv3, AdditionalRelatedFiles, "m_AdditionalRelatedFiles", static data => new AdditionalRelatedFile(data));
 
             var childResources = kv3.Data.GetArray<string>("m_ChildResourceList");
             if (childResources != null)

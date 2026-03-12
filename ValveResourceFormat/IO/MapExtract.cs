@@ -390,7 +390,7 @@ public sealed class MapExtract
         {
             var worldPhysMeshes = phys.Parts[0].Shape.Meshes.Where(m => phys.CollisionAttributes[m.CollisionAttributeIndex].GetStringProperty("m_CollisionGroupString") == "Default");
 
-            PhysVertexMatcher = new PhysicsVertexMatcher(worldPhysMeshes.ToArray());
+            PhysVertexMatcher = new PhysicsVertexMatcher([.. worldPhysMeshes]);
 
             // TODO: physics spheres and capsules are ignored
         }
@@ -1038,9 +1038,7 @@ public sealed class MapExtract
             {
                 if (!aggregateHasTransforms)
                 {
-                    drawCenters = (sceneObject.ContainsKey("m_drawBounds") ? sceneObject.GetArray("m_drawBounds") : [])
-                        .Select(aabb => (aabb.GetSubCollection("m_vMinBounds").ToVector3() + aabb.GetSubCollection("m_vMaxBounds").ToVector3()) / 2f)
-                        .ToArray();
+                    drawCenters = [.. (sceneObject.ContainsKey("m_drawBounds") ? sceneObject.GetArray("m_drawBounds") : []).Select(aabb => (aabb.GetSubCollection("m_vMinBounds").ToVector3() + aabb.GetSubCollection("m_vMaxBounds").ToVector3()) / 2f)];
                 }
 
                 var modelFiles = ModelExtract.GetContentFiles_DrawCallSplit(modelRes, FileLoader, drawCenters, drawCalls.Length);
