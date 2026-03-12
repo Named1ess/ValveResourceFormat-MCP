@@ -38,9 +38,7 @@ namespace ValveResourceFormat.Serialization.KeyValues
         /// Gets an array from the key-value object and maps each element.
         /// </summary>
         public static T[] GetArray<T>(this KVObject collection, string name, Func<KVObject, T> mapper)
-            => collection.GetArray<KVObject>(name)
-                .Select(mapper)
-                .ToArray();
+            => [.. collection.GetArray<KVObject>(name).Select(mapper)];
 
         /// <summary>
         /// Gets a string property from the key-value object.
@@ -106,17 +104,13 @@ namespace ValveResourceFormat.Serialization.KeyValues
         /// Gets an integer array from the key-value object.
         /// </summary>
         public static long[] GetIntegerArray(this KVObject collection, string name)
-            => collection.GetArray<object>(name)
-                .Select(x => Convert.ToInt64(x, CultureInfo.InvariantCulture))
-                .ToArray();
+            => [.. collection.GetArray<object>(name).Select(x => Convert.ToInt64(x, CultureInfo.InvariantCulture))];
 
         /// <summary>
         /// Gets a float array from the key-value object.
         /// </summary>
         public static float[] GetFloatArray(this KVObject collection, string name)
-            => collection.GetArray<object>(name)
-                .Select(x => Convert.ToSingle(x, CultureInfo.InvariantCulture))
-                .ToArray();
+            => [.. collection.GetArray<object>(name).Select(x => Convert.ToSingle(x, CultureInfo.InvariantCulture))];
 
         /// <summary>
         /// Gets an unsigned integer array from the key-value object.
@@ -132,10 +126,10 @@ namespace ValveResourceFormat.Serialization.KeyValues
 
             if (array[0] is int)
             {
-                return array.Select(x => unchecked((ulong)(int)x)).ToArray();
+                return [.. array.Select(x => unchecked((ulong)(int)x))];
             }
 
-            return array.Select(x => Convert.ToUInt64(x, CultureInfo.InvariantCulture)).ToArray();
+            return [.. array.Select(x => Convert.ToUInt64(x, CultureInfo.InvariantCulture))];
         }
 
         /// <summary>

@@ -139,10 +139,9 @@ namespace ValveResourceFormat.ResourceTypes
         /// </summary>
         /// <returns>A list of entities.</returns>
         public List<Entity> GetEntities()
-            => Data.GetArray("m_entityKeyValues")
+            => [.. Data.GetArray("m_entityKeyValues")
                 .Select(ParseEntityProperties)
-                .OfType<Entity>()
-                .ToList();
+                .OfType<Entity>()];
 
         private Entity? ParseEntityProperties(KVObject entityKv)
         {

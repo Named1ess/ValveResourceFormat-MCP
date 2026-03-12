@@ -128,13 +128,9 @@ namespace ValveResourceFormat.ResourceTypes.ModelAnimation
                 Movements[i] = new AnimationMovement(movementArray[i]);
             }
 
-            Events = animDesc.GetArray("m_eventArray")
-                                 .Select(x => new AnimationEvent(x))
-                                 .ToArray();
+            Events = [.. animDesc.GetArray("m_eventArray").Select(x => new AnimationEvent(x))];
 
-            Activities = animDesc.GetArray("m_activityArray")
-                                    .Select(x => new AnimationActivity(x))
-                                    .ToArray();
+            Activities = [.. animDesc.GetArray("m_activityArray").Select(x => new AnimationActivity(x))];
 
             var sequenceParams = animDesc.GetSubCollection("m_sequenceParams");
             SequenceParams = new AnimationSequenceParams(sequenceParams);
@@ -159,9 +155,7 @@ namespace ValveResourceFormat.ResourceTypes.ModelAnimation
             Autoplay = seqFlags.GetProperty<bool>("m_bAutoplay");
 
             // Activities from sequence descriptor
-            Activities = seqDesc.GetArray("m_activityArray")
-                .Select(x => new AnimationActivity(x))
-                .ToArray();
+            Activities = [.. seqDesc.GetArray("m_activityArray").Select(x => new AnimationActivity(x))];
 
             // Transition params from sequence descriptor
             var transition = seqDesc.GetSubCollection("m_transition");
@@ -190,9 +184,7 @@ namespace ValveResourceFormat.ResourceTypes.ModelAnimation
             }
 
             // Events from animation data
-            Events = animDesc.GetArray("m_eventArray")
-                .Select(x => new AnimationEvent(x))
-                .ToArray();
+            Events = [.. animDesc.GetArray("m_eventArray").Select(x => new AnimationEvent(x))];
 
             // Auto layers
             var autoLayerArray = seqDesc.GetArray("m_autoLayerArray");
@@ -259,11 +251,10 @@ namespace ValveResourceFormat.ResourceTypes.ModelAnimation
                 }
 
                 var wantedElements = remapTable.Where(boneID => boneID != -1).ToArray();
-                remapTable = remapTable
+                remapTable = [.. remapTable
                     .Select((boneID, i) => (boneID, i))
                     .Where(t => t.boneID != -1)
-                    .Select(t => t.i)
-                    .ToArray();
+                    .Select(t => t.i)];
 
                 if (localChannel.Attribute == AnimationChannelAttribute.Unknown)
                 {
@@ -319,9 +310,7 @@ namespace ValveResourceFormat.ResourceTypes.ModelAnimation
 
             var segmentArray = BuildSegmentArray(animationData, decodeKey, skeleton, flexControllers);
 
-            return animArray
-                .Select(anim => new Animation(anim, segmentArray))
-                .ToArray();
+            return [.. animArray.Select(anim => new Animation(anim, segmentArray))];
         }
 
         /// <summary>

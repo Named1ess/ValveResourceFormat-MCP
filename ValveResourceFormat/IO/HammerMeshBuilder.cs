@@ -205,7 +205,7 @@ namespace ValveResourceFormat.IO
 
             var baseVertex = Builder.Vertices.Count;
             var indexCount = CurrentFace.Indices.Count;
-            Span<int> newIndices = indexCount < 32 ? stackalloc int[indexCount] : new int[indexCount];
+            var newIndices = indexCount < 32 ? stackalloc int[indexCount] : new int[indexCount];
 
             for (var i = 0; i < CurrentFace.Indices.Count; i++)
             {
@@ -286,13 +286,13 @@ namespace ValveResourceFormat.IO
                 Triangles = mesh.Shape.GetTriangles().ToArray();
                 PhysicsTree = mesh.Shape.ParseNodes().ToArray();
 
-                DeletedVertexIndices = new HashSet<int>();
+                DeletedVertexIndices = [];
                 DeletedVertexIndices.EnsureCapacity(VertexPositions.Length / 4);
             }
         }
 
         /// <summary>Gets the list of physics meshes.</summary>
-        public List<PhysMeshData> PhysicsMeshes { get; } = new();
+        public List<PhysMeshData> PhysicsMeshes { get; } = [];
 
         /// <summary>
         /// Initializes a new instance of the <see cref="PhysicsVertexMatcher"/> class.
@@ -334,7 +334,9 @@ namespace ValveResourceFormat.IO
 
                 var localMatches = new HashSet<int>(capacity: renderMeshPositions.Length);
 
-                Span<int> triangleIndices = [0, 0, 0];
+#pragma warning disable CA2014 // stackalloc in loop is safe for small fixed-size arrays
+                Span<int> triangleIndices = stackalloc int[3];
+#pragma warning restore CA2014
 
                 var stack = new Stack<RnMeshNodeWithIndex>(64); // TODO: Make this a property for reuse?
 
@@ -376,14 +378,16 @@ namespace ValveResourceFormat.IO
                         {
                             var triangle = meshData.Triangles[triangleOffset + k];
 
-                            triangleIndices = [triangle.X, triangle.Y, triangle.Z];
+                            triangleIndices[0] = triangle.X;
+                            triangleIndices[1] = triangle.Y;
+                            triangleIndices[2] = triangle.Z;
 
                             for (var t = 0; t < 3; t++)
                             {
                                 var pos = meshData.VertexPositions[triangleIndices[t]];
                                 if (Vector3.DistanceSquared(pos, renderPosition) < epsilon)
                                 {
-                                    localMatches.Add(triangleIndices[t]); // TODO: Add to DeletedVertexIndices
+                                    localMatches.Add(triangleIndices[t]);
                                 }
                             }
                         }
@@ -1258,7 +1262,7 @@ namespace ValveResourceFormat.IO
             if (PhysicsVertexMatcher != null && PhysicsVertexMatcher.LastPositions != positions)
             {
                 PhysicsVertexMatcher.LastPositions = positions;
-                PhysicsVertexMatcher.ScanPhysicsPointCloudForMatches(positions.ToArray().AsSpan(), ProgressReporter);
+                PhysicsVertexMatcher.ScanPhysicsPointCloudForMatches([.. positions], ProgressReporter);
             }
 
             foreach (var faceset in facesets.Cast<DmeFaceSet>())

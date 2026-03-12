@@ -210,11 +210,11 @@ partial class ModelExtract
             return;
         }
 
-        PhysicsSurfaceNames = physAggregateData.SurfacePropertyHashes.Select(StringToken.GetKnownString).ToArray();
+        PhysicsSurfaceNames = [.. physAggregateData.SurfacePropertyHashes.Select(StringToken.GetKnownString)];
 
-        PhysicsCollisionTags = physAggregateData.CollisionAttributes.Select(attributes =>
+        PhysicsCollisionTags = [.. physAggregateData.CollisionAttributes.Select(attributes =>
             (attributes.GetArray<string>("m_InteractAsStrings") ?? attributes.GetArray<string>("m_PhysicsTagStrings"))!.ToHashSet()
-        ).ToArray();
+        )];
 
         // Fix index error on some old vphys files
         if (PhysicsSurfaceNames.Length == 0)
