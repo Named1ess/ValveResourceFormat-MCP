@@ -1,0 +1,61 @@
+"ResourceEditInfo"
+{
+	"AdditionalInputDependencies"
+	{
+	}
+	"AdditionalRelatedFiles"
+	{
+	}
+	"ArgumentDependencies"
+	{
+		"0"
+		{
+			"Fingerprint"	"0"
+			"FingerprintDefault"	"0"
+			"ParameterName"	"___OverrideInputData___"
+			"ParameterType"	"BinaryBlobArg"
+		}
+	}
+	"ChildResourceList"
+	{
+	}
+	"InputDependencies"
+	{
+		"0"
+		{
+			"ContentRelativeFilename"	"panorama/scripts/custom_game/multiteam_flyout_scoreboard.vjs"
+			"ContentSearchPath"	"dota"
+			"FileCRC"	"0"
+			"FileExists"	"0"
+			"IsGameFile"	"0"
+			"Optional"	"1"
+		}
+		"1"
+		{
+			"ContentRelativeFilename"	"panorama/scripts/custom_game/multiteam_flyout_scoreboard.js"
+			"ContentSearchPath"	"dota"
+			"FileCRC"	"469673809"
+			"FileExists"	"1"
+			"IsGameFile"	"0"
+			"Optional"	"0"
+		}
+	}
+	"SearchableUserData"
+	{
+		"0"
+		{
+			"Key"	"IsChildResource"
+			"Value"	"0"
+		}
+	}
+	"SpecialDependencies"
+	{
+		"0"
+		{
+			"CompilerIdentifier"	"CompilePanorama"
+			"Fingerprint"	"1"
+			"String"	"Panorama Script Compiler Version"
+			"UserData"	"0"
+		}
+	}
+}

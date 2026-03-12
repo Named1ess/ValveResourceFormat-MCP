@@ -65,7 +65,7 @@ public partial class GltfModelExporter
 
     private static Dictionary<string, Accessor>[] CreateVertexBufferAccessors(ModelRoot exportedModel, VBIB vbib, int boneWeightCount, int[]? boneRemapTable = null)
     {
-        return [.. vbib.VertexBuffers.Select((vertexBuffer, vertexBufferIndex) =>
+        return vbib.VertexBuffers.Select((vertexBuffer, vertexBufferIndex) =>
         {
             var accessors = new Dictionary<string, Accessor>();
 
@@ -291,7 +291,7 @@ public partial class GltfModelExporter
             }
 
             return accessors;
-        })];
+        }).ToArray();
     }
 
     private MeshPrimitive CreateMeshFromDrawCall(KVObject drawCall, Mesh mesh, VBIB vbib, Dictionary<string,

@@ -120,7 +120,7 @@ namespace ValveResourceFormat.ResourceTypes.RubikonPhysics.Shapes
                 if (Data.IsNotBlobType("m_Planes"))
                 {
                     var planesArr = Data.GetArray("m_Planes");
-                    return planesArr.Select(p => new Plane(p)).ToArray();
+                    return planesArr.Select(p => new Plane(p)).ToArray().AsSpan();
                 }
 
                 return MemoryMarshal.Cast<byte, Plane>(Data.GetArray<byte>("m_Planes"));

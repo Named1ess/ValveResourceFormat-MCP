@@ -771,14 +771,14 @@ namespace ValveResourceFormat.IO
             // Find all the gameinfo.gi files, open them to get game paths
             var gameInfos = new FileSystemEnumerable<string>(
                 gamePath,
-                (ref entry) => entry.ToSpecifiedFullPath(),
+                (ref FileSystemEntry entry) => entry.ToSpecifiedFullPath(),
                 new EnumerationOptions
                 {
                     RecurseSubdirectories = true,
                     MaxRecursionDepth = 5,
                 })
             {
-                ShouldIncludePredicate = static (ref entry) => !entry.IsDirectory && entry.FileName.Equals(GameinfoGi, StringComparison.Ordinal)
+                ShouldIncludePredicate = static (ref FileSystemEntry entry) => !entry.IsDirectory && entry.FileName.Equals(GameinfoGi, StringComparison.Ordinal)
             };
 
             var folders = new HashSet<string>();

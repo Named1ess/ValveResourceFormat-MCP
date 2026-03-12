@@ -679,7 +679,10 @@ namespace ValveResourceFormat.IO
 
             // Even though that's not documented, order matters.
             // WorldMatrix should only be set after everything else.
-            skeletonNode?.WorldMatrix = transform;
+            if (skeletonNode != null)
+            {
+                skeletonNode.WorldMatrix = transform;
+            }
         }
 
         /// <summary>
@@ -722,8 +725,11 @@ namespace ValveResourceFormat.IO
             var name = Path.GetFileName(resourceName);
             var node = AddMeshNode(exportedModel, scene, name, Vector4.One, mesh, mesh.VBIB, joints: null);
 
-            // Swap Rotate upright, scale inches to meters.
-            node?.WorldMatrix = TRANSFORMSOURCETOGLTF;
+            if (node != null)
+            {
+                // Swap Rotate upright, scale inches to meters.
+                node.WorldMatrix = TRANSFORMSOURCETOGLTF;
+            }
 
             WriteModelFile(exportedModel, fileName);
         }
