@@ -1,0 +1,45 @@
+"ResourceEditInfo"
+{
+	"AdditionalInputDependencies"
+	{
+	}
+	"AdditionalRelatedFiles"
+	{
+	}
+	"ArgumentDependencies"
+	{
+		"0"
+		{
+			"Fingerprint"	"0"
+			"FingerprintDefault"	"0"
+			"ParameterName"	"___OverrideInputData___"
+			"ParameterType"	"BinaryBlobArg"
+		}
+	}
+	"ChildResourceList"
+	{
+	}
+	"InputDependencies"
+	{
+		"0"
+		{
+			"ContentRelativeFilename"	"soundevents/soundevents_dota.vsndevts"
+			"ContentSearchPath"	"dota"
+			"FileCRC"	"3711234660"
+			"FileExists"	"1"
+			"IsGameFile"	"0"
+			"Optional"	"0"
+		}
+	}
+	"SearchableUserData"
+	{
+		"0"
+		{
+			"Key"	"IsChildResource"
+			"Value"	"0"
+		}
+	}
+	"SpecialDependencies"
+	{
+	}
+}
