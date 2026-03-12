@@ -20,23 +20,20 @@ namespace ValveResourceFormat.ResourceTypes
         /// Gets the bind pose transformation matrices.
         /// </summary>
         public Matrix4x4[] BindPose
-           => Data.GetArray("m_bindPose")
-                .Select(v => Matrix4x4FromArray(v
-                    .Select(m => Convert.ToSingle(m.Value, CultureInfo.InvariantCulture))
-                    .ToArray()))
-                .ToArray();
+           => [.. Data.GetArray("m_bindPose")
+                .Select(v => Matrix4x4FromArray([.. v.Select(m => Convert.ToSingle(m.Value, CultureInfo.InvariantCulture))]))];
 
         /// <summary>
         /// Gets the physics parts (shapes) in this aggregate.
         /// </summary>
         public Part[] Parts
-            => parts ??= Data.GetArray("m_parts").Select(p => new Part(p)).ToArray();
+            => parts ??= [.. Data.GetArray("m_parts").Select(p => new Part(p))];
 
         /// <summary>
         /// Gets the surface property hashes for collision materials.
         /// </summary>
         public uint[] SurfacePropertyHashes
-            => Data.GetArray<object>("m_surfacePropertyHashes").Select(Convert.ToUInt32).ToArray();
+            => [.. Data.GetArray<object>("m_surfacePropertyHashes").Select(Convert.ToUInt32)];
 
         /// <summary>
         /// Gets the collision attributes.

@@ -373,7 +373,7 @@ namespace ValveResourceFormat.Serialization.KeyValues
                         return (T[])value.Value;
                     }
 
-                    return ((byte[])value.Value).Cast<T>().ToArray();
+                    return [.. ((byte[])value.Value).Cast<T>()];
                 }
 
                 if (value.Type != KVValueType.Array) // && value.Type != KV3BinaryNodeType.ARRAY_TYPED)
@@ -384,13 +384,13 @@ namespace ValveResourceFormat.Serialization.KeyValues
                 // TODO: Why are we trying to read floats as doubles
                 if (typeof(T) == typeof(double))
                 {
-                    return ((KVObject)value.Value).Properties.Values.Select(static (v) =>
+                    return [.. ((KVObject)value.Value).Properties.Values.Select(static (v) =>
                     {
                         return v.Type == KVValueType.FloatingPoint ? (double)(float)v.Value : (double)v.Value;
-                    }).Cast<T>().ToArray();
+                    }).Cast<T>()];
                 }
 
-                return ((KVObject)value.Value).Properties.Values.Select(static v => (T)v.Value).ToArray();
+                return [.. ((KVObject)value.Value).Properties.Values.Select(static v => (T)v.Value)];
             }
             else
             {
@@ -465,7 +465,7 @@ namespace ValveResourceFormat.Serialization.KeyValues
             [DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
             KeyValue[] Properties => obj.IsArray
                 ? []
-                : obj.Properties.Select(p => new KeyValue(p)).ToArray();
+                : [.. obj.Properties.Select(p => new KeyValue(p))];
 
 
             [DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]

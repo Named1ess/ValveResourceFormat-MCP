@@ -262,7 +262,7 @@ public sealed class MaterialExtract
         foreach (var (key, value) in material.FloatAttributes)
         {
             // Skip `int` definition if there is a `float` definition
-            attributes = attributes.Where(existing_key => existing_key.Name != key).ToList();
+            attributes = [.. attributes.Where(existing_key => existing_key.Name != key)];
             attributes.Add(new KVObject(key, value));
         }
 
@@ -291,7 +291,7 @@ public sealed class MaterialExtract
         {
             // Some attributes are actually SystemAttributes
             var systemAttributes = attributes.Where(attribute => attributesThatAreSystemAttributes.Contains(attribute.Name.ToLowerInvariant())).ToList();
-            attributes = attributes.Except(systemAttributes).ToList();
+            attributes = [.. attributes.Except(systemAttributes)];
 
             if (attributes.Count > 0)
             {
