@@ -33,7 +33,7 @@ jobs:
       # 4. 编译项目 (以编译 CLI 工具为例)
       - name: Build VRF CLI
         run: |
-          dotnet publish vrf-source/ValveResourceFormat/ValveResourceFormat.csproj -c Release -r win-x64 --self-contained -o ./publish-cli
+          dotnet publish vrf-source/CLI/CLI.csproj -c Release -r win-x64 --self-contained -o ./publish-cli
 
       # 5. 将编译产物同步到你的仓库
       - name: Push to my repo root
