@@ -202,13 +202,20 @@ class VRFServer:
         Decompile a resource file.
 
         Args:
-            input_path: Path to the input file
+            input_path: Path to the input file or 'vpk_path::internal_path'
             output_path: Optional output path
 
         Returns:
             Dictionary containing decompilation result
         """
-        args = ["-i", input_path, "--decompile"]
+        # Handle VPK internal path format
+        if "::" in input_path:
+            parts = input_path.split("::", 1)
+            vpk_path = parts[0]
+            internal_path = parts[1]
+            args = ["-i", vpk_path, "--vpk_filepath", internal_path, "--decompile"]
+        else:
+            args = ["-i", input_path, "--decompile"]
 
         if output_path:
             args.extend(["-o", output_path])
@@ -292,19 +299,32 @@ class VRFServer:
         Extract a texture to an image file.
 
         Args:
-            texture_path: Path to the texture file (.vtex)
+            texture_path: Path to the texture file (.vtex) or 'vpk_path::internal_path'
             output_path: Path for the output image file
             decode_flags: Decode flags (none, auto, focused)
 
         Returns:
             Dictionary containing extraction result
         """
-        args = [
-            "-i", texture_path,
-            "--decompile",
-            "--texture_decode_flags", decode_flags,
-            "-o", output_path
-        ]
+        # Handle VPK internal path format
+        if "::" in texture_path:
+            parts = texture_path.split("::", 1)
+            vpk_path = parts[0]
+            internal_path = parts[1]
+            args = [
+                "-i", vpk_path,
+                "--vpk_filepath", internal_path,
+                "--decompile",
+                "--texture_decode_flags", decode_flags,
+                "-o", output_path
+            ]
+        else:
+            args = [
+                "-i", texture_path,
+                "--decompile",
+                "--texture_decode_flags", decode_flags,
+                "-o", output_path
+            ]
 
         returncode, stdout, stderr = self.run_cli(args, timeout=120)
 
@@ -482,7 +502,6 @@ class VRFServer:
                              mesh_list: Optional[str] = None,
                              textures_adapt: bool = False,
                              export_extras: bool = False,
-                             vpk_internal: bool = False,
                              vpk_path: Optional[str] = None) -> dict[str, Any]:
         """
         Export a 3D model to glTF format with advanced options.
@@ -496,13 +515,12 @@ class VRFServer:
             mesh_list: Comma-separated mesh names to include
             textures_adapt: Whether to perform glTF spec adaptations
             export_extras: Whether to export additional mesh properties
-            vpk_internal: Whether this is a VPK internal file
-            vpk_path: If vpk_internal is True, the VPK path
+            vpk_path: VPK path if model_path is internal path
 
         Returns:
             Dictionary containing export result
         """
-        if vpk_internal and vpk_path:
+        if vpk_path:
             args = ["-i", vpk_path, "--vpk_filepath", model_path, "-d"]
         else:
             args = ["-i", model_path, "-d"]
@@ -972,7 +990,6 @@ class MCPServer:
                 args.get("mesh_list"),
                 args.get("textures_adapt", False),
                 args.get("export_extras", False),
-                bool(args.get("vpk_path")),
                 args.get("vpk_path")
             )
 
