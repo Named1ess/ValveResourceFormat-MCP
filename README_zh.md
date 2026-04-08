@@ -18,7 +18,6 @@
 {
   "mcpServers": {
     "vrf": {
-      "type": "stdio",
       "command": "python",
       "args": ["C:\\Users\\Administrator\\Documents\\GitHub\\ValveResourceFormat-MCP\\MCP\\mcp_server.py"],
       "env": {
