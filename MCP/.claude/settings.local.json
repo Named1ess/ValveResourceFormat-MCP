@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(\"C:/Users/Administrator/Documents/GitHub/ValveResourceFormat-MCP/cli-windows-x64/Source2Viewer-CLI.exe\" --help)",
+      "Bash(\"C:/Users/Administrator/Documents/GitHub/ValveResourceFormat-MCP/cli-windows-x64/Source2Viewer-CLI.exe\" -i \"G:/SteamLibrary/steamapps/common/Counter-Strike Global Offensive/game/csgo/pak01_dir.vpk\" --vpk_list --vpk_extensions \"vmat_c\")",
+      "Bash(\"C:/Users/Administrator/Documents/GitHub/ValveResourceFormat-MCP/cli-windows-x64/Source2Viewer-CLI.exe\" -i \"G:/SteamLibrary/steamapps/common/Counter-Strike Global Offensive/game/csgo/pak01_dir.vpk\" --vpk_filepath \"materials/metalness_metallic.vmat_c\" -a)",
+      "Bash(\"C:/Users/Administrator/Documents/GitHub/ValveResourceFormat-MCP/cli-windows-x64/Source2Viewer-CLI.exe\" -i \"G:/SteamLibrary/steamapps/common/Counter-Strike Global Offensive/game/csgo/pak01_dir.vpk\" --vpk_filepath \"characters/models/ctm_diver/materials/ctm_diver_body_varianta.vmat_c\" -a)",
+      "Bash(python -c \":*)",
+      "Bash(\"C:/Users/Administrator/Documents/GitHub/ValveResourceFormat-MCP/cli-windows-x64/Source2Viewer-CLI.exe\":*)",
+      "Bash(mkdir -p /c/temp/glb_test)",
+      "Bash(\"C:/Users/Administrator/Documents/GitHub/ValveResourceFormat-MCP/cli-windows-x64/Source2Viewer-CLI.exe\" -i \"G:/SteamLibrary/steamapps/common/Counter-Strike Global Offensive/game/csgo/pak01_dir.vpk\" --vpk_filepath \"characters/models/ctm_diver/ctm_diver.vmdl\" -d --gltf_export_format glb -o \"/c/temp/glb_test/\")",
+      "Bash(\"C:/Users/Administrator/Documents/GitHub/ValveResourceFormat-MCP/cli-windows-x64/Source2Viewer-CLI.exe\" -i \"G:/SteamLibrary/steamapps/common/Counter-Strike Global Offensive/game/csgo/pak01_dir.vpk\" --vpk_list --vpk_extensions \"vmdl_c\")",
+      "Bash(\"C:/Users/Administrator/Documents/GitHub/ValveResourceFormat-MCP/cli-windows-x64/Source2Viewer-CLI.exe\" -i \"G:/SteamLibrary/steamapps/common/Counter-Strike Global Offensive/game/csgo/pak01_dir.vpk\" --vpk_filepath \"characters/models/ctm_diver/ctm_diver_varianta.vmdl_c\" -d --gltf_export_format glb -o \"/c/temp/glb_test/\")"
+    ]
+  }
+}

@@ -80,8 +80,7 @@ class VRFServer:
                 result = subprocess.run(
                     ["where", name],
                     capture_output=True,
-                    text=True,
-                    shell=True
+                    text=True
                 )
                 if result.returncode == 0:
                     return result.stdout.strip().split('\n')[0]
@@ -107,8 +106,7 @@ class VRFServer:
                 cmd,
                 capture_output=True,
                 text=True,
-                timeout=timeout,
-                shell=True
+                timeout=timeout
             )
             return result.returncode, result.stdout, result.stderr
         except subprocess.TimeoutExpired:
@@ -238,7 +236,7 @@ class VRFServer:
         Export a 3D model to glTF format.
 
         Args:
-            model_path: Path to the model file (.vmdl)
+            model_path: Path to the model file (.vmdl) or 'vpk_path::internal_path'
             output_path: Path for the output glTF/glb file
             include_animations: Whether to include animations
             include_materials: Whether to include materials
@@ -246,11 +244,25 @@ class VRFServer:
         Returns:
             Dictionary containing export result
         """
-        args = [
-            "-i", model_path,
-            "--gltf_export_format", "glb",
-            "-o", output_path
-        ]
+        # Handle VPK internal path format
+        if "::" in model_path:
+            parts = model_path.split("::", 1)
+            vpk_path = parts[0]
+            internal_path = parts[1]
+            args = [
+                "-i", vpk_path,
+                "--vpk_filepath", internal_path,
+                "-d",
+                "--gltf_export_format", "glb",
+                "-o", output_path
+            ]
+        else:
+            args = [
+                "-i", model_path,
+                "-d",
+                "--gltf_export_format", "glb",
+                "-o", output_path
+            ]
 
         if include_animations:
             args.append("--gltf_export_animations")
@@ -491,9 +503,9 @@ class VRFServer:
             Dictionary containing export result
         """
         if vpk_internal and vpk_path:
-            args = ["-i", vpk_path, "--vpk_filepath", model_path]
+            args = ["-i", vpk_path, "--vpk_filepath", model_path, "-d"]
         else:
-            args = ["-i", model_path]
+            args = ["-i", model_path, "-d"]
 
         args.extend([
             "--gltf_export_format", "glb",
@@ -960,7 +972,7 @@ class MCPServer:
                 args.get("mesh_list"),
                 args.get("textures_adapt", False),
                 args.get("export_extras", False),
-                args.get("vpk_path") is not None,
+                bool(args.get("vpk_path")),
                 args.get("vpk_path")
             )
 
