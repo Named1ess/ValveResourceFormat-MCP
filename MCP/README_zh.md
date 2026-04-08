@@ -1,16 +1,16 @@
 # ValveResourceFormat MCP Server
 
-An MCP server that enables AI tools (like Cursor) to interact with Valve Source 2 resource formats.
+一个让 AI 工具（如 Cursor）能够与 Valve Source 2 资源格式交互的 MCP 服务器。
 
-## Quick Start
+## 快速开始
 
-### 1. Download CLI
+### 1. 下载 CLI
 
-Download the latest CLI from [ValveResourceFormat Releases](https://github.com/ValveResourceFormat/ValveResourceFormat/releases) (choose `Source2Viewer-CLI-win-x.x.zip`).
+前往 [ValveResourceFormat Releases](https://github.com/ValveResourceFormat/ValveResourceFormat/releases) 下载最新版 CLI（选择 `Source2Viewer-CLI-win-x.x.zip`）。
 
-### 2. Configure Cursor
+### 2. 配置 Cursor
 
-Edit `C:\Users\Administrator\.cursor\mcp.json` and add the following configuration (update paths to match your setup):
+编辑 `C:\Users\Administrator\.cursor\mcp.json`，添加以下配置（将路径改为你的实际路径）：
 
 ```json
 {
@@ -26,45 +26,45 @@ Edit `C:\Users\Administrator\.cursor\mcp.json` and add the following configurati
 }
 ```
 
-### 3. Restart Cursor
+### 3. 重启 Cursor
 
-After saving the configuration, restart Cursor to activate the MCP server.
+保存配置后，重启 Cursor 使 MCP 服务器生效。
 
-## Supported Tools
+## 支持的功能
 
-| Tool | Description |
-|------|-------------|
-| `inspect_file` | Inspect resource file structure (supports VPK internal files) |
-| `list_vpk_contents` | List VPK archive contents |
-| `decompile_resource` | Decompile a single resource (supports VPK internal files) |
-| `decompile_vpk` | Batch decompile VPK archive |
-| `export_gltf` | Export 3D model to glTF (supports VPK internal files) |
-| `export_gltf_advanced` | Advanced glTF export with filtering options |
-| `extract_texture` | Extract texture to image (supports VPK internal files) |
-| `verify_vpk` | Verify VPK integrity and signatures |
-| `collect_stats` | Collect resource statistics |
-| `get_file_info` | Get file information |
-| `list_directory_resources` | List resource files in a directory |
+| 工具 | 功能 |
+|------|------|
+| `inspect_file` | 检查资源文件结构（支持 VPK 内文件） |
+| `list_vpk_contents` | 列出 VPK 内容 |
+| `decompile_resource` | 反编译单个资源（支持 VPK 内文件） |
+| `decompile_vpk` | 批量反编译 VPK |
+| `export_gltf` | 导出 glTF 模型（支持 VPK 内文件） |
+| `export_gltf_advanced` | 高级 glTF 导出（支持 VPK 内模型） |
+| `extract_texture` | 提取纹理图片（支持 VPK 内文件） |
+| `verify_vpk` | 验证 VPK 完整性 |
+| `collect_stats` | 收集资源统计 |
+| `get_file_info` | 获取文件信息 |
+| `list_directory_resources` | 列出目录资源 |
 
-## Path Formats
+## 路径格式
 
-MCP supports two path formats:
+MCP 支持两种路径格式：
 
-**Regular path**:
+**普通路径**：
 ```
 G:\SteamLibrary\steamapps\common\Counter-Strike Global Offensive\game\csgo\models\player\t_model.mdl_c
 ```
 
-**VPK internal path** (format: `vpk_path::internal_path`):
+**VPK 内部路径**（格式：`vpk路径::内部路径`）：
 ```
 G:\SteamLibrary\steamapps\common\Counter-Strike Global Offensive\game\csgo\pak01_dir.vpk::models/player/t_model.vmdl_c
 ```
 
-Most tools support the VPK internal path format.
+大多数工具都支持 VPK 内部路径格式。
 
-## Usage Examples
+## 使用示例
 
-### Inspect a file inside a VPK
+### 检查 VPK 内文件结构
 
 ```
 inspect_file({
@@ -72,7 +72,7 @@ inspect_file({
 })
 ```
 
-### List VPK contents
+### 列出 VPK 内容
 
 ```
 list_vpk_contents({
@@ -82,7 +82,7 @@ list_vpk_contents({
 })
 ```
 
-### Decompile a resource from VPK
+### 反编译 VPK 内的资源
 
 ```
 decompile_resource({
@@ -91,7 +91,7 @@ decompile_resource({
 })
 ```
 
-### Export a model from VPK to glTF
+### 导出 VPK 内的 3D 模型为 glTF
 
 ```
 export_gltf({
@@ -102,7 +102,7 @@ export_gltf({
 })
 ```
 
-### Advanced glTF export
+### 高级 glTF 导出（支持从 VPK 内部路径导出）
 
 ```
 export_gltf_advanced({
@@ -116,7 +116,7 @@ export_gltf_advanced({
 })
 ```
 
-### Extract texture from VPK
+### 提取 VPK 内的纹理图片
 
 ```
 extract_texture({
@@ -126,7 +126,7 @@ extract_texture({
 })
 ```
 
-### Batch decompile VPK
+### 批量反编译 VPK
 
 ```
 decompile_vpk({
@@ -138,7 +138,7 @@ decompile_vpk({
 })
 ```
 
-### Verify VPK integrity
+### 验证 VPK 完整性
 
 ```
 verify_vpk({
@@ -146,7 +146,7 @@ verify_vpk({
 })
 ```
 
-### Collect resource statistics
+### 收集资源统计
 
 ```
 collect_stats({
@@ -156,7 +156,7 @@ collect_stats({
 })
 ```
 
-### List resource files in directory
+### 列出目录中的资源文件
 
 ```
 list_directory_resources({
@@ -166,20 +166,20 @@ list_directory_resources({
 })
 ```
 
-## Notes
+## 注意事项
 
-### CLI Output Directory
+### CLI 输出目录
 
-When exporting glTF, extracting textures, or decompiling resources, the CLI creates subdirectories based on the resource path inside the VPK. For example:
+当导出 glTF、提取纹理或反编译资源时，CLI 会根据资源在 VPK 内的路径创建子目录结构。例如：
 
 ```
 output_path: C:\temp\model.glb
-actual output: C:\temp\model.glb\characters\models\ctm_diver\ctm_diver_varianta.glb
+实际输出: C:\temp\model.glb\characters\models\ctm_diver\ctm_diver_varianta.glb
 ```
 
-This is the CLI's built-in behavior and cannot be controlled by MCP. Please keep this in mind when specifying output_path.
+这是 CLI 的内置行为，MCP 无法控制。请在使用 output_path 时考虑这一点。
 
-## System Requirements
+## 系统要求
 
 - Python 3.10+
 - Windows/macOS/Linux
