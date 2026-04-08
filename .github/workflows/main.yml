@@ -1,0 +1,48 @@
+name: Build and Sync VRF
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # 每天自动检查并编译一次
+  workflow_dispatch:   # 允许你点击按钮手动立即编译
+
+jobs:
+  build:
+    runs-on: windows-latest # VRF 包含 GUI 组件，使用 Windows 运行环境最稳妥
+
+    steps:
+      # 1. 检出你自己的仓库
+      - name: Checkout your repo
+        uses: actions/checkout@v4
+        with:
+          path: my-repo
+
+      # 2. 检出 ValveResourceFormat 仓库
+      - name: Checkout VRF
+        uses: actions/checkout@v4
+        with:
+          repository: ValveResourceFormat/ValveResourceFormat
+          path: vrf-source
+          submodules: recursive # 处理子模块
+
+      # 3. 设置 .NET 环境
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x' # 根据该项目需求选择版本
+
+      # 4. 编译项目 (以编译 CLI 工具为例)
+      - name: Build VRF CLI
+        run: |
+          dotnet publish vrf-source/Decompiler/Decompiler.csproj -c Release -o ./publish-cli
+
+      # 5. 将编译产物同步到你的仓库
+      - name: Push to my repo
+        run: |
+          cd my-repo
+          mkdir -p bin/vrf
+          cp -r ../publish-cli/* bin/vrf/
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -m "Routine update of VRF binaries" || exit 0
+          git push
