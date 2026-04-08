@@ -70,7 +70,7 @@ class VRFServer:
         except subprocess.TimeoutExpired:
             return -1, "", f"Command timed out after {timeout} seconds"
         except Exception as e:
-            return -1, "", str(e)
+            return -1, "", str(e) if str(e) else "Unknown error occurred"
 
     def inspect_file(self, file_path: str) -> dict[str, Any]:
         """
@@ -83,11 +83,24 @@ class VRFServer:
         Returns:
             Dictionary containing file information
         """
+        if not file_path:
+            return {
+                "success": False,
+                "error": "File path is empty",
+                "file": ""
+            }
+
         # Check if this is a VPK internal file request
         if "::" in file_path:
             parts = file_path.split("::", 1)
-            vpk_path = parts[0]
-            vpk_file_path = parts[1]
+            vpk_path = parts[0] if len(parts) > 0 else ""
+            vpk_file_path = parts[1] if len(parts) > 1 else ""
+            if not vpk_path or not vpk_file_path:
+                return {
+                    "success": False,
+                    "error": "Invalid VPK path format. Expected 'vpk_path::internal_path'",
+                    "file": file_path
+                }
             args = ["-i", vpk_path, "--vpk_filepath", vpk_file_path, "-a"]
         else:
             args = ["-i", file_path]
@@ -97,14 +110,14 @@ class VRFServer:
         if returncode != 0:
             return {
                 "success": False,
-                "error": stderr or "Failed to inspect file",
+                "error": stderr if stderr else "Failed to inspect file",
                 "file": file_path
             }
 
         return {
             "success": True,
             "file": file_path,
-            "output": stdout
+            "output": stdout if stdout else ""
         }
 
     def list_vpk(self, vpk_path: str, extension_filter: Optional[str] = None,
@@ -133,24 +146,25 @@ class VRFServer:
         if returncode != 0:
             return {
                 "success": False,
-                "error": stderr or "Failed to list VPK contents",
-                "vpk": vpk_path
+                "error": stderr if stderr else "Failed to list VPK contents",
+                "vpk": vpk_path if vpk_path else "unknown"
             }
 
         # Parse the output into a structured format
         # VPK list output is: "path/to/file.ext CRC:xxxxxxxxxx size:xxxxx"
         files = []
-        for line in stdout.strip().split('\n'):
+        stdout_content = stdout if stdout else ""
+        for line in stdout_content.strip().split('\n'):
             line = line.strip()
             if line:
                 # Extract just the filepath (before " CRC:")
                 parts = line.split(' CRC:')
-                if parts:
+                if parts and len(parts) > 0:
                     files.append(parts[0])
 
         return {
             "success": True,
-            "vpk": vpk_path,
+            "vpk": vpk_path if vpk_path else "unknown",
             "files": files,
             "file_count": len(files)
         }
@@ -166,11 +180,24 @@ class VRFServer:
         Returns:
             Dictionary containing decompilation result
         """
+        if not input_path:
+            return {
+                "success": False,
+                "error": "Input path is empty",
+                "input": ""
+            }
+
         # Handle VPK internal path format
         if "::" in input_path:
             parts = input_path.split("::", 1)
-            vpk_path = parts[0]
-            internal_path = parts[1]
+            vpk_path = parts[0] if len(parts) > 0 else ""
+            internal_path = parts[1] if len(parts) > 1 else ""
+            if not vpk_path or not internal_path:
+                return {
+                    "success": False,
+                    "error": "Invalid VPK path format. Expected 'vpk_path::internal_path'",
+                    "input": input_path
+                }
             args = ["-i", vpk_path, "--vpk_filepath", internal_path, "--decompile"]
         else:
             args = ["-i", input_path, "--decompile"]
@@ -183,15 +210,15 @@ class VRFServer:
         if returncode != 0:
             return {
                 "success": False,
-                "error": stderr or "Failed to decompile file",
-                "input": input_path
+                "error": stderr if stderr else "Failed to decompile file",
+                "input": input_path if input_path else "unknown"
             }
 
         return {
             "success": True,
-            "input": input_path,
-            "output": output_path or stdout,
-            "output_path": output_path
+            "input": input_path if input_path else "unknown",
+            "output": output_path if output_path else stdout if stdout else "",
+            "output_path": output_path if output_path else ""
         }
 
     def export_gltf(self, model_path: str, output_path: str,
@@ -209,11 +236,30 @@ class VRFServer:
         Returns:
             Dictionary containing export result
         """
+        if not model_path:
+            return {
+                "success": False,
+                "error": "Model path is empty",
+                "input": ""
+            }
+        if not output_path:
+            return {
+                "success": False,
+                "error": "Output path is empty",
+                "input": model_path
+            }
+
         # Handle VPK internal path format
         if "::" in model_path:
             parts = model_path.split("::", 1)
-            vpk_path = parts[0]
-            internal_path = parts[1]
+            vpk_path = parts[0] if len(parts) > 0 else ""
+            internal_path = parts[1] if len(parts) > 1 else ""
+            if not vpk_path or not internal_path:
+                return {
+                    "success": False,
+                    "error": "Invalid VPK path format. Expected 'vpk_path::internal_path'",
+                    "input": model_path
+                }
             args = [
                 "-i", vpk_path,
                 "--vpk_filepath", internal_path,
@@ -240,14 +286,14 @@ class VRFServer:
         if returncode != 0:
             return {
                 "success": False,
-                "error": stderr or "Failed to export glTF",
-                "input": model_path
+                "error": stderr if stderr else "Failed to export glTF",
+                "input": model_path if model_path else "unknown"
             }
 
         return {
             "success": True,
-            "input": model_path,
-            "output": output_path,
+            "input": model_path if model_path else "unknown",
+            "output": output_path if output_path else "",
             "format": "glb"
         }
 
@@ -264,11 +310,30 @@ class VRFServer:
         Returns:
             Dictionary containing extraction result
         """
+        if not texture_path:
+            return {
+                "success": False,
+                "error": "Texture path is empty",
+                "input": ""
+            }
+        if not output_path:
+            return {
+                "success": False,
+                "error": "Output path is empty",
+                "input": texture_path
+            }
+
         # Handle VPK internal path format
         if "::" in texture_path:
             parts = texture_path.split("::", 1)
-            vpk_path = parts[0]
-            internal_path = parts[1]
+            vpk_path = parts[0] if len(parts) > 0 else ""
+            internal_path = parts[1] if len(parts) > 1 else ""
+            if not vpk_path or not internal_path:
+                return {
+                    "success": False,
+                    "error": "Invalid VPK path format. Expected 'vpk_path::internal_path'",
+                    "input": texture_path
+                }
             args = [
                 "-i", vpk_path,
                 "--vpk_filepath", internal_path,
@@ -289,14 +354,14 @@ class VRFServer:
         if returncode != 0:
             return {
                 "success": False,
-                "error": stderr or "Failed to extract texture",
-                "input": texture_path
+                "error": stderr if stderr else "Failed to extract texture",
+                "input": texture_path if texture_path else "unknown"
             }
 
         return {
             "success": True,
-            "input": texture_path,
-            "output": output_path
+            "input": texture_path if texture_path else "unknown",
+            "output": output_path if output_path else ""
         }
 
     def get_file_info(self, file_path: str) -> dict[str, Any]:
@@ -311,6 +376,13 @@ class VRFServer:
         """
         path = Path(file_path)
 
+        if not file_path:
+            return {
+                "success": False,
+                "error": "File path is empty",
+                "file": "unknown"
+            }
+
         if not path.exists():
             return {
                 "success": False,
@@ -319,7 +391,7 @@ class VRFServer:
             }
 
         # Get file extension
-        ext = path.suffix.lower()
+        ext = path.suffix.lower() if path.suffix else ""
 
         # Get file size
         size = path.stat().st_size
@@ -335,6 +407,8 @@ class VRFServer:
 
     def _format_size(self, size: int) -> str:
         """Format byte size to human readable string."""
+        if size < 0:
+            size = 0
         for unit in ['B', 'KB', 'MB', 'GB']:
             if size < 1024:
                 return f"{size:.2f} {unit}"
@@ -351,20 +425,27 @@ class VRFServer:
         Returns:
             Dictionary containing verification result
         """
+        if not vpk_path:
+            return {
+                "success": False,
+                "error": "VPK path is empty",
+                "vpk": ""
+            }
+
         args = ["-i", vpk_path, "--vpk_verify"]
         returncode, stdout, stderr = self.run_cli(args, timeout=120)
 
         if returncode != 0:
             return {
                 "success": False,
-                "error": stderr or "Failed to verify VPK",
+                "error": stderr if stderr else "Failed to verify VPK",
                 "vpk": vpk_path
             }
 
         return {
             "success": True,
             "vpk": vpk_path,
-            "output": stdout
+            "output": stdout if stdout else ""
         }
 
     def collect_stats(self, input_path: str,
@@ -385,6 +466,13 @@ class VRFServer:
         Returns:
             Dictionary containing statistics
         """
+        if not input_path:
+            return {
+                "success": False,
+                "error": "Input path is empty",
+                "input": ""
+            }
+
         args = ["-i", input_path, "--stats"]
 
         if include_files:
@@ -401,14 +489,14 @@ class VRFServer:
         if returncode != 0:
             return {
                 "success": False,
-                "error": stderr or "Failed to collect stats",
+                "error": stderr if stderr else "Failed to collect stats",
                 "input": input_path
             }
 
         return {
             "success": True,
             "input": input_path,
-            "output": stdout
+            "output": stdout if stdout else ""
         }
 
     def decompile_vpk(self, vpk_path: str, output_path: str,
@@ -428,6 +516,19 @@ class VRFServer:
         Returns:
             Dictionary containing decompilation result
         """
+        if not vpk_path:
+            return {
+                "success": False,
+                "error": "VPK path is empty",
+                "vpk": ""
+            }
+        if not output_path:
+            return {
+                "success": False,
+                "error": "Output path is empty",
+                "vpk": vpk_path if vpk_path else "unknown"
+            }
+
         args = ["-i", vpk_path, "-o", output_path, "-d"]
 
         if extension_filter:
@@ -442,7 +543,7 @@ class VRFServer:
         if returncode != 0:
             return {
                 "success": False,
-                "error": stderr or "Failed to decompile VPK",
+                "error": stderr if stderr else "Failed to decompile VPK",
                 "vpk": vpk_path
             }
 
@@ -450,7 +551,7 @@ class VRFServer:
             "success": True,
             "vpk": vpk_path,
             "output_path": output_path,
-            "output": stdout
+            "output": stdout if stdout else ""
         }
 
     def export_gltf_advanced(self, model_path: str, output_path: str,
@@ -478,6 +579,19 @@ class VRFServer:
         Returns:
             Dictionary containing export result
         """
+        if not model_path:
+            return {
+                "success": False,
+                "error": "Model path is empty",
+                "input": ""
+            }
+        if not output_path:
+            return {
+                "success": False,
+                "error": "Output path is empty",
+                "input": model_path
+            }
+
         if vpk_path:
             args = ["-i", vpk_path, "--vpk_filepath", model_path, "-d"]
         else:
@@ -506,7 +620,7 @@ class VRFServer:
         if returncode != 0:
             return {
                 "success": False,
-                "error": stderr or "Failed to export glTF",
+                "error": stderr if stderr else "Failed to export glTF",
                 "input": model_path
             }
 
@@ -803,8 +917,18 @@ class MCPServer:
 
     async def handle_request(self, request: dict[str, Any]) -> dict[str, Any]:
         """Handle an incoming MCP request."""
-        method = request.get("method")
-        request_id = request.get("id")
+        method = request.get("method") if request else None
+        request_id = request.get("id") if request else None
+
+        if not method:
+            return {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "error": {
+                    "code": -32600,
+                    "message": "Invalid Request: method is missing"
+                }
+            }
 
         # Handle initialize request (required by MCP protocol)
         if method == "initialize":
@@ -826,12 +950,18 @@ class MCPServer:
             return {
                 "jsonrpc": "2.0",
                 "id": request_id,
-                "result": {"tools": self.tools}
+                "result": {"tools": self.tools if self.tools else []}
             }
         elif method == "tools/call":
-            params = request.get("params", {})
-            tool_name = params.get("name")
-            tool_args = params.get("arguments", {})
+            params = request.get("params", {}) if request else {}
+            tool_name = params.get("name") if params else None
+            tool_args = params.get("arguments", {}) if params else {}
+
+            if not tool_name:
+                return {
+                    "success": False,
+                    "error": "Tool name is required"
+                }
 
             result = await self._call_tool(tool_name, tool_args)
 
@@ -859,77 +989,117 @@ class MCPServer:
     async def _call_tool(self, tool_name: str, args: dict[str, Any]) -> dict[str, Any]:
         """Call a specific tool with the given arguments."""
         loop = asyncio.get_event_loop()
+        args = args if args else {}
 
         if tool_name == "inspect_file":
-            return await loop.run_in_executor(None, self.vrf.inspect_file, args["file_path"])
+            file_path = args.get("file_path") if args else None
+            if not file_path:
+                return {"success": False, "error": "file_path is required"}
+            return await loop.run_in_executor(None, self.vrf.inspect_file, file_path)
 
         elif tool_name == "list_vpk_contents":
+            vpk_path = args.get("vpk_path") if args else None
+            if not vpk_path:
+                return {"success": False, "error": "vpk_path is required"}
             return await loop.run_in_executor(
                 None,
                 self.vrf.list_vpk,
-                args["vpk_path"],
+                vpk_path,
                 args.get("extension_filter"),
                 args.get("path_filter")
             )
 
         elif tool_name == "decompile_resource":
+            input_path = args.get("input_path") if args else None
+            if not input_path:
+                return {"success": False, "error": "input_path is required"}
             return await loop.run_in_executor(
                 None,
                 self.vrf.decompile,
-                args["input_path"],
+                input_path,
                 args.get("output_path")
             )
 
         elif tool_name == "export_gltf":
+            model_path = args.get("model_path") if args else None
+            output_path = args.get("output_path") if args else None
+            if not model_path:
+                return {"success": False, "error": "model_path is required"}
+            if not output_path:
+                return {"success": False, "error": "output_path is required"}
             return await loop.run_in_executor(
                 None,
                 self.vrf.export_gltf,
-                args["model_path"],
-                args["output_path"],
+                model_path,
+                output_path,
                 args.get("include_animations", True),
                 args.get("include_materials", True)
             )
 
         elif tool_name == "extract_texture":
+            texture_path = args.get("texture_path") if args else None
+            output_path = args.get("output_path") if args else None
+            if not texture_path:
+                return {"success": False, "error": "texture_path is required"}
+            if not output_path:
+                return {"success": False, "error": "output_path is required"}
             return await loop.run_in_executor(
                 None,
                 self.vrf.extract_texture,
-                args["texture_path"],
-                args["output_path"],
+                texture_path,
+                output_path,
                 args.get("decode_flags", "auto")
             )
 
         elif tool_name == "get_file_info":
-            return await loop.run_in_executor(None, self.vrf.get_file_info, args["file_path"])
+            file_path = args.get("file_path") if args else None
+            if not file_path:
+                return {"success": False, "error": "file_path is required"}
+            return await loop.run_in_executor(None, self.vrf.get_file_info, file_path)
 
         elif tool_name == "list_directory_resources":
+            directory = args.get("directory") if args else None
+            if not directory:
+                return {"success": False, "error": "directory is required"}
             return await loop.run_in_executor(
                 None,
                 self._list_directory_resources,
-                args["directory"],
+                directory,
                 args.get("extension_filter"),
                 args.get("recursive", False)
             )
 
         elif tool_name == "verify_vpk":
-            return await loop.run_in_executor(None, self.vrf.verify_vpk, args["vpk_path"])
+            vpk_path = args.get("vpk_path") if args else None
+            if not vpk_path:
+                return {"success": False, "error": "vpk_path is required"}
+            return await loop.run_in_executor(None, self.vrf.verify_vpk, vpk_path)
 
         elif tool_name == "decompile_vpk":
+            vpk_path = args.get("vpk_path") if args else None
+            output_path = args.get("output_path") if args else None
+            if not vpk_path:
+                return {"success": False, "error": "vpk_path is required"}
+            if not output_path:
+                return {"success": False, "error": "output_path is required"}
             return await loop.run_in_executor(
                 None,
                 self.vrf.decompile_vpk,
-                args["vpk_path"],
-                args["output_path"],
+                vpk_path,
+                output_path,
                 args.get("extension_filter"),
                 args.get("path_filter"),
                 args.get("recursive", False)
             )
 
         elif tool_name == "collect_stats":
+            input_path = args.get("input_path") if args else None
+            if not input_path:
+                return {"success": False, "error": "input_path is required"}
             return await loop.run_in_executor(
                 None,
                 self.vrf.collect_stats,
-                args["input_path"],
+                input_path,
                 args.get("include_files", False),
                 args.get("unique_deps", False),
                 args.get("particles", False),
@@ -937,11 +1107,17 @@ class MCPServer:
             )
 
         elif tool_name == "export_gltf_advanced":
+            model_path = args.get("model_path") if args else None
+            output_path = args.get("output_path") if args else None
+            if not model_path:
+                return {"success": False, "error": "model_path is required"}
+            if not output_path:
+                return {"success": False, "error": "output_path is required"}
             return await loop.run_in_executor(
                 None,
                 self.vrf.export_gltf_advanced,
-                args["model_path"],
-                args["output_path"],
+                model_path,
+                output_path,
                 args.get("include_animations", True),
                 args.get("include_materials", True),
                 args.get("animation_list"),
@@ -958,13 +1134,20 @@ class MCPServer:
                                    extension_filter: Optional[str] = None,
                                    recursive: bool = False) -> dict[str, Any]:
         """List resource files in a directory."""
+        if not directory:
+            return {
+                "success": False,
+                "error": "Directory path is empty",
+                "directory": ""
+            }
+
         path = Path(directory)
 
         if not path.exists() or not path.is_dir():
             return {
                 "success": False,
                 "error": "Directory not found",
-                "directory": directory
+                "directory": directory if directory else "unknown"
             }
 
         # Default Source 2 extensions
@@ -998,7 +1181,7 @@ class MCPServer:
 
         return {
             "success": True,
-            "directory": directory,
+            "directory": directory if directory else "unknown",
             "files": [str(f) for f in unique_files],
             "file_count": len(unique_files)
         }
@@ -1027,12 +1210,13 @@ async def main():
     try:
         server = MCPServer(cli_path)
     except FileNotFoundError as e:
+        error_msg = str(e) if str(e) else "VRF CLI executable not found"
         print(json.dumps({
             "jsonrpc": "2.0",
             "id": 1,
             "error": {
                 "code": -32000,
-                "message": str(e)
+                "message": error_msg
             }
         }), file=sys.stderr)
         sys.exit(1)
@@ -1069,12 +1253,13 @@ async def main():
             sys.stdout.flush()
 
         except Exception as e:
+            error_msg = str(e) if str(e) else "Unknown server error occurred"
             error_response = {
                 "jsonrpc": "2.0",
                 "id": None,
                 "error": {
                     "code": -32000,
-                    "message": f"Server error: {str(e)}"
+                    "message": f"Server error: {error_msg}"
                 }
             }
             print(json.dumps(error_response))
