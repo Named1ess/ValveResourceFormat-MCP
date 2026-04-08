@@ -1,1269 +1,924 @@
 """
 ValveResourceFormat MCP Server
 
-A Model Context Protocol (MCP) server that enables AI tools like Cursor
-to interact with Valve's Source 2 resource formats.
+使用官方 MCP SDK 重构的服务器，提供与 Valve Source 2 资源格式交互的工具。
 """
 
 import asyncio
-import json
 import os
-import subprocess
 import sys
-import tempfile
+import json
+import subprocess
 from pathlib import Path
-from typing import Any, Optional
-import argparse
+from typing import Optional, Any
 
-
-class VRFServer:
-    """Wrapper for ValveResourceFormat CLI operations."""
-
-    def __init__(self, cli_path: Optional[str] = None):
-        """
-        Initialize the VRF server.
-
-        Args:
-            cli_path: Path to the VRF CLI executable. If not provided,
-                     looks for CLI.exe in common locations.
-        """
-        if cli_path:
-            self.cli_path = cli_path
-        else:
-            # Try to find CLI.exe in common locations
-            self.cli_path = self._find_cli()
-
-        if not self.cli_path or not Path(self.cli_path).exists():
-            env_val = os.environ.get("VRF_CLI_PATH", "<not set>")
-            raise FileNotFoundError(
-                f"VRF CLI not found. VRF_CLI_PATH='{env_val}'. "
-                "Please set VRF_CLI_PATH environment variable to point to Source2Viewer-CLI.exe"
-            )
-
-    def _find_cli(self) -> Optional[str]:
-        """Find the VRF CLI executable via VRF_CLI_PATH environment variable."""
-        env_path = os.environ.get("VRF_CLI_PATH")
-        if env_path and Path(env_path).exists():
-            return env_path
-        return None
-
-    def run_cli(self, args: list[str], timeout: int = 60) -> tuple[int, str, str]:
-        """
-        Run the VRF CLI with given arguments.
-
-        Args:
-            args: Command line arguments for CLI
-            timeout: Timeout in seconds
-
-        Returns:
-            Tuple of (return_code, stdout, stderr)
-        """
-        cmd = [self.cli_path] + args
-        try:
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=timeout
-            )
-            return result.returncode, result.stdout, result.stderr
-        except subprocess.TimeoutExpired:
-            return -1, "", f"Command timed out after {timeout} seconds"
-        except Exception as e:
-            return -1, "", str(e) if str(e) else "Unknown error occurred"
-
-    def inspect_file(self, file_path: str) -> dict[str, Any]:
-        """
-        Inspect a Source 2 resource file.
-
-        Args:
-            file_path: Path to the resource file. Can be a filesystem path
-                      OR format 'vpk_path::internal_path' for files inside a VPK.
-
-        Returns:
-            Dictionary containing file information
-        """
-        if not file_path:
-            return {
-                "success": False,
-                "error": "File path is empty",
-                "file": ""
-            }
-
-        # Check if this is a VPK internal file request
-        if "::" in file_path:
-            parts = file_path.split("::", 1)
-            vpk_path = parts[0] if len(parts) > 0 else ""
-            vpk_file_path = parts[1] if len(parts) > 1 else ""
-            if not vpk_path or not vpk_file_path:
-                return {
-                    "success": False,
-                    "error": "Invalid VPK path format. Expected 'vpk_path::internal_path'",
-                    "file": file_path
-                }
-            args = ["-i", vpk_path, "--vpk_filepath", vpk_file_path, "-a"]
-        else:
-            args = ["-i", file_path]
-
-        returncode, stdout, stderr = self.run_cli(args)
-
-        if returncode != 0:
-            return {
-                "success": False,
-                "error": stderr if stderr else "Failed to inspect file",
-                "file": file_path
-            }
-
-        return {
-            "success": True,
-            "file": file_path,
-            "output": stdout if stdout else ""
+try:
+    from mcp.server import Server
+    from mcp.server.stdio import stdio_server
+    from mcp.types import Tool, TextContent
+except ImportError:
+    print(json.dumps({
+        "jsonrpc": "2.0",
+        "id": 1,
+        "error": {
+            "code": -32000,
+            "message": "MCP SDK not found. Please install: pip install mcp"
         }
+    }), file=sys.stderr)
+    sys.exit(1)
 
-    def list_vpk(self, vpk_path: str, extension_filter: Optional[str] = None,
-                 path_filter: Optional[str] = None) -> dict[str, Any]:
-        """
-        List contents of a VPK archive.
 
-        Args:
-            vpk_path: Path to the VPK file
-            extension_filter: Optional extension filter (e.g., "vmdl,vmat")
-            path_filter: Optional path filter (e.g., "models/")
+# 全局配置
+VRF_CLI_PATH: Optional[str] = None
 
-        Returns:
-            Dictionary containing VPK contents
-        """
-        args = ["-i", vpk_path, "--vpk_list"]
 
-        if extension_filter:
-            args.extend(["--vpk_extensions", extension_filter])
+def get_cli_path() -> str:
+    """获取 CLI 路径，优先从环境变量读取"""
+    global VRF_CLI_PATH
+    if VRF_CLI_PATH:
+        return VRF_CLI_PATH
 
-        if path_filter:
-            args.extend(["--vpk_filepath", path_filter])
+    env_path = os.environ.get("VRF_CLI_PATH")
+    if env_path and Path(env_path).exists():
+        VRF_CLI_PATH = env_path
+        return env_path
 
-        returncode, stdout, stderr = self.run_cli(args)
+    # 尝试常见位置
+    script_dir = Path(__file__).parent
+    common_paths = [
+        script_dir / "cli-windows-x64" / "Source2Viewer-CLI.exe",
+        script_dir / "Source2Viewer-CLI.exe",
+    ]
 
-        if returncode != 0:
-            return {
-                "success": False,
-                "error": stderr if stderr else "Failed to list VPK contents",
-                "vpk": vpk_path if vpk_path else "unknown"
-            }
+    for p in common_paths:
+        if p.exists():
+            VRF_CLI_PATH = str(p)
+            return str(p)
 
-        # Parse the output into a structured format
-        # VPK list output is: "path/to/file.ext CRC:xxxxxxxxxx size:xxxxx"
-        files = []
-        stdout_content = stdout if stdout else ""
-        for line in stdout_content.strip().split('\n'):
-            line = line.strip()
-            if line:
-                # Extract just the filepath (before " CRC:")
-                parts = line.split(' CRC:')
-                if parts and len(parts) > 0:
-                    files.append(parts[0])
+    error_msg = (
+        f"VRF CLI not found. VRF_CLI_PATH='{env_path or '<not set>'}'. "
+        "Please set VRF_CLI_PATH environment variable to point to Source2Viewer-CLI.exe"
+    )
+    raise FileNotFoundError(error_msg)
 
-        return {
-            "success": True,
-            "vpk": vpk_path if vpk_path else "unknown",
-            "files": files,
-            "file_count": len(files)
-        }
 
-    def decompile(self, input_path: str, output_path: Optional[str] = None) -> dict[str, Any]:
-        """
-        Decompile a resource file.
+def run_cli(args: list[str], timeout: int = 60) -> tuple[int, str, str]:
+    """执行 VRF CLI 命令"""
+    cli_path = get_cli_path()
+    cmd = [cli_path] + args
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            encoding='utf-8',
+            errors='replace',
+            timeout=timeout
+        )
+        return result.returncode, result.stdout, result.stderr
+    except subprocess.TimeoutExpired:
+        return -1, "", f"Command timed out after {timeout} seconds"
+    except Exception as e:
+        return -1, "", str(e) if str(e) else "Unknown error occurred"
 
-        Args:
-            input_path: Path to the input file or 'vpk_path::internal_path'
-            output_path: Optional output path
 
-        Returns:
-            Dictionary containing decompilation result
-        """
-        if not input_path:
-            return {
-                "success": False,
-                "error": "Input path is empty",
-                "input": ""
-            }
-
-        # Handle VPK internal path format
-        if "::" in input_path:
-            parts = input_path.split("::", 1)
-            vpk_path = parts[0] if len(parts) > 0 else ""
-            internal_path = parts[1] if len(parts) > 1 else ""
-            if not vpk_path or not internal_path:
-                return {
-                    "success": False,
-                    "error": "Invalid VPK path format. Expected 'vpk_path::internal_path'",
-                    "input": input_path
-                }
-            args = ["-i", vpk_path, "--vpk_filepath", internal_path, "--decompile"]
-        else:
-            args = ["-i", input_path, "--decompile"]
-
-        if output_path:
-            args.extend(["-o", output_path])
-
-        returncode, stdout, stderr = self.run_cli(args, timeout=120)
-
-        if returncode != 0:
-            return {
-                "success": False,
-                "error": stderr if stderr else "Failed to decompile file",
-                "input": input_path if input_path else "unknown"
-            }
-
-        return {
-            "success": True,
-            "input": input_path if input_path else "unknown",
-            "output": output_path if output_path else stdout if stdout else "",
-            "output_path": output_path if output_path else ""
-        }
-
-    def export_gltf(self, model_path: str, output_path: str,
-                    include_animations: bool = True,
-                    include_materials: bool = True) -> dict[str, Any]:
-        """
-        Export a 3D model to glTF format.
-
-        Args:
-            model_path: Path to the model file (.vmdl) or 'vpk_path::internal_path'
-            output_path: Path for the output glTF/glb file
-            include_animations: Whether to include animations
-            include_materials: Whether to include materials
-
-        Returns:
-            Dictionary containing export result
-        """
-        if not model_path:
-            return {
-                "success": False,
-                "error": "Model path is empty",
-                "input": ""
-            }
-        if not output_path:
-            return {
-                "success": False,
-                "error": "Output path is empty",
-                "input": model_path
-            }
-
-        # Handle VPK internal path format
-        if "::" in model_path:
-            parts = model_path.split("::", 1)
-            vpk_path = parts[0] if len(parts) > 0 else ""
-            internal_path = parts[1] if len(parts) > 1 else ""
-            if not vpk_path or not internal_path:
-                return {
-                    "success": False,
-                    "error": "Invalid VPK path format. Expected 'vpk_path::internal_path'",
-                    "input": model_path
-                }
-            args = [
-                "-i", vpk_path,
-                "--vpk_filepath", internal_path,
-                "-d",
-                "--gltf_export_format", "glb",
-                "-o", output_path
-            ]
-        else:
-            args = [
-                "-i", model_path,
-                "-d",
-                "--gltf_export_format", "glb",
-                "-o", output_path
-            ]
-
-        if include_animations:
-            args.append("--gltf_export_animations")
-
-        if include_materials:
-            args.append("--gltf_export_materials")
-
-        returncode, stdout, stderr = self.run_cli(args, timeout=180)
-
-        if returncode != 0:
-            return {
-                "success": False,
-                "error": stderr if stderr else "Failed to export glTF",
-                "input": model_path if model_path else "unknown"
-            }
-
-        return {
-            "success": True,
-            "input": model_path if model_path else "unknown",
-            "output": output_path if output_path else "",
-            "format": "glb"
-        }
-
-    def extract_texture(self, texture_path: str, output_path: str,
-                        decode_flags: str = "auto") -> dict[str, Any]:
-        """
-        Extract a texture to an image file.
-
-        Args:
-            texture_path: Path to the texture file (.vtex) or 'vpk_path::internal_path'
-            output_path: Path for the output image file
-            decode_flags: Decode flags (none, auto, focused)
-
-        Returns:
-            Dictionary containing extraction result
-        """
-        if not texture_path:
-            return {
-                "success": False,
-                "error": "Texture path is empty",
-                "input": ""
-            }
-        if not output_path:
-            return {
-                "success": False,
-                "error": "Output path is empty",
-                "input": texture_path
-            }
-
-        # Handle VPK internal path format
-        if "::" in texture_path:
-            parts = texture_path.split("::", 1)
-            vpk_path = parts[0] if len(parts) > 0 else ""
-            internal_path = parts[1] if len(parts) > 1 else ""
-            if not vpk_path or not internal_path:
-                return {
-                    "success": False,
-                    "error": "Invalid VPK path format. Expected 'vpk_path::internal_path'",
-                    "input": texture_path
-                }
-            args = [
-                "-i", vpk_path,
-                "--vpk_filepath", internal_path,
-                "--decompile",
-                "--texture_decode_flags", decode_flags,
-                "-o", output_path
-            ]
-        else:
-            args = [
-                "-i", texture_path,
-                "--decompile",
-                "--texture_decode_flags", decode_flags,
-                "-o", output_path
-            ]
-
-        returncode, stdout, stderr = self.run_cli(args, timeout=120)
-
-        if returncode != 0:
-            return {
-                "success": False,
-                "error": stderr if stderr else "Failed to extract texture",
-                "input": texture_path if texture_path else "unknown"
-            }
-
-        return {
-            "success": True,
-            "input": texture_path if texture_path else "unknown",
-            "output": output_path if output_path else ""
-        }
-
-    def get_file_info(self, file_path: str) -> dict[str, Any]:
-        """
-        Get basic file information (size, type, etc.).
-
-        Args:
-            file_path: Path to the file
-
-        Returns:
-            Dictionary containing file information
-        """
-        path = Path(file_path)
-
-        if not file_path:
-            return {
-                "success": False,
-                "error": "File path is empty",
-                "file": "unknown"
-            }
-
-        if not path.exists():
-            return {
-                "success": False,
-                "error": "File not found",
-                "file": file_path
-            }
-
-        # Get file extension
-        ext = path.suffix.lower() if path.suffix else ""
-
-        # Get file size
-        size = path.stat().st_size
-
-        return {
-            "success": True,
-            "file": file_path,
-            "name": path.name,
-            "extension": ext,
-            "size": size,
-            "size_formatted": self._format_size(size)
-        }
-
-    def _format_size(self, size: int) -> str:
-        """Format byte size to human readable string."""
-        if size < 0:
+def parse_vpk_list(output: str) -> list[dict[str, Any]]:
+    """解析 VPK 列表输出"""
+    files = []
+    for line in output.strip().split('\n'):
+        line = line.strip()
+        if not line:
+            continue
+        # 格式: "path/to/file.ext CRC:xxxxxxxxxx size:xxxxx"
+        parts = line.split(' CRC:')
+        if parts:
+            path = parts[0]
             size = 0
-        for unit in ['B', 'KB', 'MB', 'GB']:
-            if size < 1024:
-                return f"{size:.2f} {unit}"
-            size /= 1024
-        return f"{size:.2f} TB"
+            crc = "0000000000"
+            if len(parts) > 1:
+                crc_part = parts[1]
+                crc_size_parts = crc_part.split(' size:')
+                if crc_size_parts:
+                    crc = crc_size_parts[0]
+                    if len(crc_size_parts) > 1:
+                        try:
+                            size = int(crc_size_parts[1])
+                        except ValueError:
+                            pass
+            files.append({
+                "path": path,
+                "crc": crc,
+                "size": size
+            })
+    return files
 
-    def verify_vpk(self, vpk_path: str) -> dict[str, Any]:
-        """
-        Verify the integrity and signatures of a VPK archive.
 
-        Args:
-            vpk_path: Path to the VPK file
+# ============================================================
+# 工具定义
+# ============================================================
 
-        Returns:
-            Dictionary containing verification result
-        """
-        if not vpk_path:
-            return {
-                "success": False,
-                "error": "VPK path is empty",
-                "vpk": ""
+def create_tools() -> list[Tool]:
+    """创建 MCP 工具列表"""
+    return [
+        Tool(
+            name="get_file_info",
+            description="获取文件的基本信息（大小、类型、扩展名）",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "file_path": {
+                        "type": "string",
+                        "description": "文件路径"
+                    }
+                },
+                "required": ["file_path"]
             }
-
-        args = ["-i", vpk_path, "--vpk_verify"]
-        returncode, stdout, stderr = self.run_cli(args, timeout=120)
-
-        if returncode != 0:
-            return {
-                "success": False,
-                "error": stderr if stderr else "Failed to verify VPK",
-                "vpk": vpk_path
+        ),
+        Tool(
+            name="list_vpk_contents",
+            description="列出 VPK 归档中的所有文件，支持按扩展名或路径过滤",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "vpk_path": {
+                        "type": "string",
+                        "description": "VPK 文件路径"
+                    },
+                    "extension_filter": {
+                        "type": "string",
+                        "description": "逗号分隔的扩展名列表（如 'vmdl,vmat'）"
+                    },
+                    "path_filter": {
+                        "type": "string",
+                        "description": "路径前缀过滤（如 'models/'）"
+                    }
+                },
+                "required": ["vpk_path"]
             }
+        ),
+        Tool(
+            name="inspect_file",
+            description="检查 Source 2 资源文件的结构、块和数据。VPK 内部文件请使用 'vpk_path::internal_path' 格式",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "file_path": {
+                        "type": "string",
+                        "description": "资源文件路径，可以是文件系统路径或 'vpk_path::internal_path' 格式"
+                    }
+                },
+                "required": ["file_path"]
+            }
+        ),
+        Tool(
+            name="decompile_resource",
+            description="将 Source 2 资源文件反编译为可读的原始格式",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "input_path": {
+                        "type": "string",
+                        "description": "要反编译的资源文件路径"
+                    },
+                    "output_path": {
+                        "type": "string",
+                        "description": "可选的输出路径"
+                    }
+                },
+                "required": ["input_path"]
+            }
+        ),
+        Tool(
+            name="export_gltf",
+            description="将 3D 模型（.vmdl）导出为 glTF/glb 格式以便在其他工具中查看",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "model_path": {
+                        "type": "string",
+                        "description": "模型文件路径（.vmdl）"
+                    },
+                    "output_path": {
+                        "type": "string",
+                        "description": "输出 glTF/glb 文件路径"
+                    },
+                    "include_animations": {
+                        "type": "boolean",
+                        "description": "是否在导出中包含动画",
+                        "default": True
+                    },
+                    "include_materials": {
+                        "type": "boolean",
+                        "description": "是否在导出中包含材质",
+                        "default": True
+                    }
+                },
+                "required": ["model_path", "output_path"]
+            }
+        ),
+        Tool(
+            name="export_gltf_advanced",
+            description="高级 glTF 导出，支持动画/网格过滤和 VPK 支持",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "model_path": {
+                        "type": "string",
+                        "description": "模型文件路径（.vmdl）或 VPK 内部路径"
+                    },
+                    "output_path": {
+                        "type": "string",
+                        "description": "输出 glTF/glb 文件路径"
+                    },
+                    "vpk_path": {
+                        "type": "string",
+                        "description": "如果 model_path 是内部路径，则指定 VPK 路径"
+                    },
+                    "include_animations": {
+                        "type": "boolean",
+                        "description": "是否包含动画",
+                        "default": True
+                    },
+                    "include_materials": {
+                        "type": "boolean",
+                        "description": "是否包含材质",
+                        "default": True
+                    },
+                    "animation_list": {
+                        "type": "string",
+                        "description": "逗号分隔的要包含的动画名称列表"
+                    },
+                    "mesh_list": {
+                        "type": "string",
+                        "description": "逗号分隔的要包含的网格名称列表"
+                    },
+                    "textures_adapt": {
+                        "type": "boolean",
+                        "description": "对纹理执行 glTF 规范适配",
+                        "default": False
+                    },
+                    "export_extras": {
+                        "type": "boolean",
+                        "description": "将额外的网格属性导出到 glTF extras",
+                        "default": False
+                    }
+                },
+                "required": ["model_path", "output_path"]
+            }
+        ),
+        Tool(
+            name="extract_texture",
+            description="将纹理（.vtex）提取为图像文件（PNG/TGA）",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "texture_path": {
+                        "type": "string",
+                        "description": "纹理文件路径（.vtex）"
+                    },
+                    "output_path": {
+                        "type": "string",
+                        "description": "输出图像文件路径"
+                    },
+                    "decode_flags": {
+                        "type": "string",
+                        "description": "解码标志：'none'、'auto' 或 'focused'",
+                        "default": "auto"
+                    }
+                },
+                "required": ["texture_path", "output_path"]
+            }
+        ),
+        Tool(
+            name="list_directory_resources",
+            description="列出目录中的所有 Source 2 资源文件，支持可选过滤",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "directory": {
+                        "type": "string",
+                        "description": "要扫描的目录路径"
+                    },
+                    "extension_filter": {
+                        "type": "string",
+                        "description": "逗号分隔的要包含的扩展名列表"
+                    },
+                    "recursive": {
+                        "type": "boolean",
+                        "description": "是否递归扫描子目录",
+                        "default": False
+                    }
+                },
+                "required": ["directory"]
+            }
+        ),
+        Tool(
+            name="verify_vpk",
+            description="验证 VPK 归档的完整性和签名",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "vpk_path": {
+                        "type": "string",
+                        "description": "VPK 文件路径"
+                    }
+                },
+                "required": ["vpk_path"]
+            }
+        ),
+        Tool(
+            name="decompile_vpk",
+            description="将 VPK 归档中的所有资源反编译到指定输出目录",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "vpk_path": {
+                        "type": "string",
+                        "description": "VPK 文件路径"
+                    },
+                    "output_path": {
+                        "type": "string",
+                        "description": "反编译文件的输出目录"
+                    },
+                    "extension_filter": {
+                        "type": "string",
+                        "description": "逗号分隔的扩展名过滤器"
+                    },
+                    "path_filter": {
+                        "type": "string",
+                        "description": "路径前缀过滤器"
+                    },
+                    "recursive": {
+                        "type": "boolean",
+                        "description": "是否递归到嵌套的 VPK",
+                        "default": False
+                    }
+                },
+                "required": ["vpk_path", "output_path"]
+            }
+        ),
+        Tool(
+            name="collect_stats",
+            description="收集资源文件的统计信息。使用 'steam' 作为输入来扫描所有 Steam 库",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "input_path": {
+                        "type": "string",
+                        "description": "文件/文件夹/VPK 路径，或 'steam' 扫描所有 Steam 库"
+                    },
+                    "include_files": {
+                        "type": "boolean",
+                        "description": "打印每个统计的示例文件名",
+                        "default": False
+                    },
+                    "unique_deps": {
+                        "type": "boolean",
+                        "description": "收集所有唯一依赖项",
+                        "default": False
+                    },
+                    "particles": {
+                        "type": "boolean",
+                        "description": "收集粒子算子、渲染器、发射器、初始化器",
+                        "default": False
+                    },
+                    "vbib": {
+                        "type": "boolean",
+                        "description": "收集顶点属性统计",
+                        "default": False
+                    }
+                },
+                "required": ["input_path"]
+            }
+        ),
+    ]
 
+
+# ============================================================
+# 工具实现
+# ============================================================
+
+async def handle_get_file_info(args: dict) -> dict:
+    """获取文件信息"""
+    file_path = args.get("file_path")
+    if not file_path:
+        return {"success": False, "error": "file_path 是必填参数"}
+
+    path = Path(file_path)
+    if not path.exists():
+        return {"success": False, "error": "文件不存在", "file": file_path}
+
+    size = path.stat().st_size
+    return {
+        "success": True,
+        "file": file_path,
+        "name": path.name,
+        "extension": path.suffix.lower(),
+        "size": size,
+        "size_formatted": _format_size(size)
+    }
+
+
+async def handle_list_vpk_contents(args: dict) -> dict:
+    """列出 VPK 内容"""
+    vpk_path = args.get("vpk_path")
+    if not vpk_path:
+        return {"success": False, "error": "vpk_path 是必填参数"}
+
+    cli_args = ["-i", vpk_path, "--vpk_list"]
+
+    extension_filter = args.get("extension_filter")
+    if extension_filter:
+        cli_args.extend(["--vpk_extensions", extension_filter])
+
+    path_filter = args.get("path_filter")
+    if path_filter:
+        cli_args.extend(["--vpk_filepath", path_filter])
+
+    returncode, stdout, stderr = await run_cli_async(cli_args)
+
+    if returncode != 0:
         return {
-            "success": True,
-            "vpk": vpk_path,
-            "output": stdout if stdout else ""
+            "success": False,
+            "error": stderr or "无法列出 VPK 内容",
+            "vpk": vpk_path
         }
 
-    def collect_stats(self, input_path: str,
-                      include_files: bool = False,
-                      unique_deps: bool = False,
-                      particles: bool = False,
-                      vbib: bool = False) -> dict[str, Any]:
-        """
-        Collect statistics about resource files.
+    files = parse_vpk_list(stdout)
 
-        Args:
-            input_path: Path to file/folder/VPK or "steam" for all steam libraries
-            include_files: Whether to print example file names
-            unique_deps: Whether to collect unique dependencies
-            particles: Whether to collect particle stats
-            vbib: Whether to collect vertex attribute stats
+    # 应用扩展名过滤（如果 CLI 没有支持）
+    if extension_filter and not path_filter:
+        exts = [f".{e.strip('.')}" for e in extension_filter.split(",")]
+        files = [f for f in files if any(f["path"].endswith(e) for e in exts)]
 
-        Returns:
-            Dictionary containing statistics
-        """
-        if not input_path:
-            return {
-                "success": False,
-                "error": "Input path is empty",
-                "input": ""
-            }
+    return {
+        "success": True,
+        "vpk": vpk_path,
+        "files": [f["path"] for f in files],
+        "file_count": len(files),
+        "details": files
+    }
 
-        args = ["-i", input_path, "--stats"]
 
-        if include_files:
-            args.append("--stats_print_files")
-        if unique_deps:
-            args.append("--stats_unique_deps")
-        if particles:
-            args.append("--stats_particles")
-        if vbib:
-            args.append("--stats_vbib")
+async def handle_inspect_file(args: dict) -> dict:
+    """检查资源文件"""
+    file_path = args.get("file_path")
+    if not file_path:
+        return {"success": False, "error": "file_path 是必填参数"}
 
-        returncode, stdout, stderr = self.run_cli(args, timeout=300)
+    # 处理 VPK 内部路径格式
+    if "::" in file_path:
+        parts = file_path.split("::", 1)
+        vpk_path = parts[0]
+        internal_path = parts[1] if len(parts) > 1 else ""
+        cli_args = ["-i", vpk_path, "--vpk_filepath", internal_path, "-a"]
+    else:
+        cli_args = ["-i", file_path]
 
-        if returncode != 0:
-            return {
-                "success": False,
-                "error": stderr if stderr else "Failed to collect stats",
-                "input": input_path
-            }
+    returncode, stdout, stderr = await run_cli_async(cli_args)
 
+    if returncode != 0:
         return {
-            "success": True,
-            "input": input_path,
-            "output": stdout if stdout else ""
+            "success": False,
+            "error": stderr or "无法检查文件",
+            "file": file_path
         }
 
-    def decompile_vpk(self, vpk_path: str, output_path: str,
-                      extension_filter: Optional[str] = None,
-                      path_filter: Optional[str] = None,
-                      recursive: bool = False) -> dict[str, Any]:
-        """
-        Decompile all resources in a VPK archive.
+    return {
+        "success": True,
+        "file": file_path,
+        "output": stdout
+    }
 
-        Args:
-            vpk_path: Path to the VPK file
-            output_path: Output directory for decompiled files
-            extension_filter: Optional extension filter
-            path_filter: Optional path filter
-            recursive: Whether to recurse into nested VPKs
 
-        Returns:
-            Dictionary containing decompilation result
-        """
-        if not vpk_path:
-            return {
-                "success": False,
-                "error": "VPK path is empty",
-                "vpk": ""
-            }
-        if not output_path:
-            return {
-                "success": False,
-                "error": "Output path is empty",
-                "vpk": vpk_path if vpk_path else "unknown"
-            }
+async def handle_decompile_resource(args: dict) -> dict:
+    """反编译资源"""
+    input_path = args.get("input_path")
+    if not input_path:
+        return {"success": False, "error": "input_path 是必填参数"}
 
-        args = ["-i", vpk_path, "-o", output_path, "-d"]
+    output_path = args.get("output_path")
 
-        if extension_filter:
-            args.extend(["--vpk_extensions", extension_filter])
-        if path_filter:
-            args.extend(["--vpk_filepath", path_filter])
-        if recursive:
-            args.append("--recursive_vpk")
+    # 处理 VPK 内部路径格式
+    if "::" in input_path:
+        parts = input_path.split("::", 1)
+        vpk_path = parts[0]
+        internal_path = parts[1] if len(parts) > 1 else ""
+        cli_args = ["-i", vpk_path, "--vpk_filepath", internal_path, "--decompile"]
+    else:
+        cli_args = ["-i", input_path, "--decompile"]
 
-        returncode, stdout, stderr = self.run_cli(args, timeout=600)
+    if output_path:
+        cli_args.extend(["-o", output_path])
 
-        if returncode != 0:
-            return {
-                "success": False,
-                "error": stderr if stderr else "Failed to decompile VPK",
-                "vpk": vpk_path
-            }
+    returncode, stdout, stderr = await run_cli_async(cli_args, timeout=120)
 
+    if returncode != 0:
         return {
-            "success": True,
-            "vpk": vpk_path,
-            "output_path": output_path,
-            "output": stdout if stdout else ""
+            "success": False,
+            "error": stderr or "无法反编译文件",
+            "input": input_path
         }
 
-    def export_gltf_advanced(self, model_path: str, output_path: str,
-                             include_animations: bool = True,
-                             include_materials: bool = True,
-                             animation_list: Optional[str] = None,
-                             mesh_list: Optional[str] = None,
-                             textures_adapt: bool = False,
-                             export_extras: bool = False,
-                             vpk_path: Optional[str] = None) -> dict[str, Any]:
-        """
-        Export a 3D model to glTF format with advanced options.
+    return {
+        "success": True,
+        "input": input_path,
+        "output": output_path or stdout,
+        "output_path": output_path or ""
+    }
 
-        Args:
-            model_path: Path to the model file (.vmdl)
-            output_path: Path for the output glTF/glb file
-            include_animations: Whether to include animations
-            include_materials: Whether to include materials
-            animation_list: Comma-separated animation names to include
-            mesh_list: Comma-separated mesh names to include
-            textures_adapt: Whether to perform glTF spec adaptations
-            export_extras: Whether to export additional mesh properties
-            vpk_path: VPK path if model_path is internal path
 
-        Returns:
-            Dictionary containing export result
-        """
-        if not model_path:
-            return {
-                "success": False,
-                "error": "Model path is empty",
-                "input": ""
-            }
-        if not output_path:
-            return {
-                "success": False,
-                "error": "Output path is empty",
-                "input": model_path
-            }
+async def handle_export_gltf(args: dict) -> dict:
+    """导出 glTF"""
+    model_path = args.get("model_path")
+    output_path = args.get("output_path")
 
-        if vpk_path:
-            args = ["-i", vpk_path, "--vpk_filepath", model_path, "-d"]
-        else:
-            args = ["-i", model_path, "-d"]
+    if not model_path:
+        return {"success": False, "error": "model_path 是必填参数"}
+    if not output_path:
+        return {"success": False, "error": "output_path 是必填参数"}
 
-        args.extend([
+    include_animations = args.get("include_animations", True)
+    include_materials = args.get("include_materials", True)
+
+    # 处理 VPK 内部路径格式
+    if "::" in model_path:
+        parts = model_path.split("::", 1)
+        vpk_path = parts[0]
+        internal_path = parts[1] if len(parts) > 1 else ""
+        cli_args = [
+            "-i", vpk_path,
+            "--vpk_filepath", internal_path,
+            "-d",
             "--gltf_export_format", "glb",
             "-o", output_path
-        ])
-
-        if include_animations:
-            args.append("--gltf_export_animations")
-        if include_materials:
-            args.append("--gltf_export_materials")
-        if animation_list:
-            args.extend(["--gltf_animation_list", animation_list])
-        if mesh_list:
-            args.extend(["--gltf_mesh_list", mesh_list])
-        if textures_adapt:
-            args.append("--gltf_textures_adapt")
-        if export_extras:
-            args.append("--gltf_export_extras")
-
-        returncode, stdout, stderr = self.run_cli(args, timeout=180)
-
-        if returncode != 0:
-            return {
-                "success": False,
-                "error": stderr if stderr else "Failed to export glTF",
-                "input": model_path
-            }
-
-        return {
-            "success": True,
-            "input": model_path,
-            "output": output_path,
-            "format": "glb"
-        }
-
-
-class MCPServer:
-    """MCP Server implementation for ValveResourceFormat."""
-
-    def __init__(self, cli_path: Optional[str] = None):
-        self.vrf = VRFServer(cli_path)
-        self.tools = self._get_tools()
-
-    def _get_tools(self) -> list[dict[str, Any]]:
-        """Define the available MCP tools."""
-        return [
-            {
-                "name": "inspect_file",
-                "description": "Inspect a Source 2 resource file and return detailed information about its structure, blocks, and data. Use format 'vpk_path::internal_path' to inspect files inside a VPK archive.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "file_path": {
-                            "type": "string",
-                            "description": "Path to the resource file. Can be a filesystem path OR format 'vpk_path::internal_path' for files inside a VPK (e.g., 'C:\\game\\pak01_dir.vpk::models/player.mdl')"
-                        }
-                    },
-                    "required": ["file_path"]
-                }
-            },
-            {
-                "name": "list_vpk_contents",
-                "description": "List all files in a VPK (Valve Package) archive, with optional filtering by extension or path.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "vpk_path": {
-                            "type": "string",
-                            "description": "Path to the VPK file"
-                        },
-                        "extension_filter": {
-                            "type": "string",
-                            "description": "Comma-separated list of extensions to filter (e.g., 'vmdl,vmat')"
-                        },
-                        "path_filter": {
-                            "type": "string",
-                            "description": "Path prefix to filter (e.g., 'models/')"
-                        }
-                    },
-                    "required": ["vpk_path"]
-                }
-            },
-            {
-                "name": "decompile_resource",
-                "description": "Decompile a Source 2 resource file to its raw, human-readable format.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "input_path": {
-                            "type": "string",
-                            "description": "Path to the resource file to decompile"
-                        },
-                        "output_path": {
-                            "type": "string",
-                            "description": "Optional output path for the decompiled file"
-                        }
-                    },
-                    "required": ["input_path"]
-                }
-            },
-            {
-                "name": "export_gltf",
-                "description": "Export a 3D model (.vmdl) to glTF/glb format for viewing in other tools.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "model_path": {
-                            "type": "string",
-                            "description": "Path to the model file (.vmdl)"
-                        },
-                        "output_path": {
-                            "type": "string",
-                            "description": "Path for the output glTF/glb file"
-                        },
-                        "include_animations": {
-                            "type": "boolean",
-                            "description": "Whether to include animations in the export",
-                            "default": True
-                        },
-                        "include_materials": {
-                            "type": "boolean",
-                            "description": "Whether to include materials in the export",
-                            "default": True
-                        }
-                    },
-                    "required": ["model_path", "output_path"]
-                }
-            },
-            {
-                "name": "extract_texture",
-                "description": "Extract a texture (.vtex) to an image file (PNG/TGA).",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "texture_path": {
-                            "type": "string",
-                            "description": "Path to the texture file (.vtex)"
-                        },
-                        "output_path": {
-                            "type": "string",
-                            "description": "Path for the output image file"
-                        },
-                        "decode_flags": {
-                            "type": "string",
-                            "description": "Decode flags: 'none', 'auto', or 'focused'",
-                            "default": "auto"
-                        }
-                    },
-                    "required": ["texture_path", "output_path"]
-                }
-            },
-            {
-                "name": "get_file_info",
-                "description": "Get basic information about a file (size, type, extension).",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "file_path": {
-                            "type": "string",
-                            "description": "Path to the file"
-                        }
-                    },
-                    "required": ["file_path"]
-                }
-            },
-            {
-                "name": "list_directory_resources",
-                "description": "List all Source 2 resource files in a directory, with optional filtering.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "directory": {
-                            "type": "string",
-                            "description": "Path to the directory to scan"
-                        },
-                        "extension_filter": {
-                            "type": "string",
-                            "description": "Comma-separated list of extensions to include"
-                        },
-                        "recursive": {
-                            "type": "boolean",
-                            "description": "Whether to scan subdirectories recursively",
-                            "default": False
-                        }
-                    },
-                    "required": ["directory"]
-                }
-            },
-            {
-                "name": "verify_vpk",
-                "description": "Verify the integrity and signatures of a VPK archive.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "vpk_path": {
-                            "type": "string",
-                            "description": "Path to the VPK file"
-                        }
-                    },
-                    "required": ["vpk_path"]
-                }
-            },
-            {
-                "name": "decompile_vpk",
-                "description": "Decompile all resources in a VPK archive to a specified output directory.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "vpk_path": {
-                            "type": "string",
-                            "description": "Path to the VPK file"
-                        },
-                        "output_path": {
-                            "type": "string",
-                            "description": "Output directory for decompiled files"
-                        },
-                        "extension_filter": {
-                            "type": "string",
-                            "description": "Comma-separated list of extensions to filter"
-                        },
-                        "path_filter": {
-                            "type": "string",
-                            "description": "Path prefix filter"
-                        },
-                        "recursive": {
-                            "type": "boolean",
-                            "description": "Whether to recurse into nested VPKs",
-                            "default": False
-                        }
-                    },
-                    "required": ["vpk_path", "output_path"]
-                }
-            },
-            {
-                "name": "collect_stats",
-                "description": "Collect statistics about resource files. Use 'steam' as input to scan all Steam libraries.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "input_path": {
-                            "type": "string",
-                            "description": "Path to file/folder/VPK, or 'steam' for all Steam libraries"
-                        },
-                        "include_files": {
-                            "type": "boolean",
-                            "description": "Print example file names for each stat",
-                            "default": False
-                        },
-                        "unique_deps": {
-                            "type": "boolean",
-                            "description": "Collect all unique dependencies",
-                            "default": False
-                        },
-                        "particles": {
-                            "type": "boolean",
-                            "description": "Collect particle operators, renderers, emitters, initializers",
-                            "default": False
-                        },
-                        "vbib": {
-                            "type": "boolean",
-                            "description": "Collect vertex attribute stats",
-                            "default": False
-                        }
-                    },
-                    "required": ["input_path"]
-                }
-            },
-            {
-                "name": "export_gltf_advanced",
-                "description": "Export a 3D model to glTF format with advanced options including animation/mesh filtering and VPK support.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "model_path": {
-                            "type": "string",
-                            "description": "Path to the model file (.vmdl) or internal path for VPK"
-                        },
-                        "output_path": {
-                            "type": "string",
-                            "description": "Path for the output glTF/glb file"
-                        },
-                        "vpk_path": {
-                            "type": "string",
-                            "description": "VPK path if model_path is internal path"
-                        },
-                        "include_animations": {
-                            "type": "boolean",
-                            "description": "Whether to include animations",
-                            "default": True
-                        },
-                        "include_materials": {
-                            "type": "boolean",
-                            "description": "Whether to include materials",
-                            "default": True
-                        },
-                        "animation_list": {
-                            "type": "string",
-                            "description": "Comma-separated animation names to include (default all)"
-                        },
-                        "mesh_list": {
-                            "type": "string",
-                            "description": "Comma-separated mesh names to include (default all)"
-                        },
-                        "textures_adapt": {
-                            "type": "boolean",
-                            "description": "Perform glTF spec adaptations on textures",
-                            "default": False
-                        },
-                        "export_extras": {
-                            "type": "boolean",
-                            "description": "Export additional mesh properties into glTF extras",
-                            "default": False
-                        }
-                    },
-                    "required": ["model_path", "output_path"]
-                }
-            }
+        ]
+    else:
+        cli_args = [
+            "-i", model_path,
+            "-d",
+            "--gltf_export_format", "glb",
+            "-o", output_path
         ]
 
-    async def handle_request(self, request: dict[str, Any]) -> dict[str, Any]:
-        """Handle an incoming MCP request."""
-        method = request.get("method") if request else None
-        request_id = request.get("id") if request else None
+    if include_animations:
+        cli_args.append("--gltf_export_animations")
+    if include_materials:
+        cli_args.append("--gltf_export_materials")
 
-        if not method:
-            return {
-                "jsonrpc": "2.0",
-                "id": request_id,
-                "error": {
-                    "code": -32600,
-                    "message": "Invalid Request: method is missing"
-                }
-            }
+    returncode, stdout, stderr = await run_cli_async(cli_args, timeout=180)
 
-        # Handle initialize request (required by MCP protocol)
-        if method == "initialize":
-            return {
-                "jsonrpc": "2.0",
-                "id": request_id,
-                "result": {
-                    "protocolVersion": "2024-11-05",
-                    "capabilities": {
-                        "tools": {}
-                    },
-                    "serverInfo": {
-                        "name": "vrf-mcp-server",
-                        "version": "1.0.0"
-                    }
-                }
-            }
-        elif method == "tools/list":
-            return {
-                "jsonrpc": "2.0",
-                "id": request_id,
-                "result": {"tools": self.tools if self.tools else []}
-            }
-        elif method == "tools/call":
-            params = request.get("params", {}) if request else {}
-            tool_name = params.get("name") if params else None
-            tool_args = params.get("arguments", {}) if params else {}
-
-            if not tool_name:
-                return {
-                    "success": False,
-                    "error": "Tool name is required"
-                }
-
-            result = await self._call_tool(tool_name, tool_args)
-
-            return {
-                "jsonrpc": "2.0",
-                "id": request_id,
-                "result": result
-            }
-        elif method == "ping":
-            return {
-                "jsonrpc": "2.0",
-                "id": request_id,
-                "result": {}
-            }
-        else:
-            return {
-                "jsonrpc": "2.0",
-                "id": request_id,
-                "error": {
-                    "code": -32601,
-                    "message": f"Method not found: {method}"
-                }
-            }
-
-    async def _call_tool(self, tool_name: str, args: dict[str, Any]) -> dict[str, Any]:
-        """Call a specific tool with the given arguments."""
-        loop = asyncio.get_event_loop()
-        args = args if args else {}
-
-        if tool_name == "inspect_file":
-            file_path = args.get("file_path") if args else None
-            if not file_path:
-                return {"success": False, "error": "file_path is required"}
-            return await loop.run_in_executor(None, self.vrf.inspect_file, file_path)
-
-        elif tool_name == "list_vpk_contents":
-            vpk_path = args.get("vpk_path") if args else None
-            if not vpk_path:
-                return {"success": False, "error": "vpk_path is required"}
-            return await loop.run_in_executor(
-                None,
-                self.vrf.list_vpk,
-                vpk_path,
-                args.get("extension_filter"),
-                args.get("path_filter")
-            )
-
-        elif tool_name == "decompile_resource":
-            input_path = args.get("input_path") if args else None
-            if not input_path:
-                return {"success": False, "error": "input_path is required"}
-            return await loop.run_in_executor(
-                None,
-                self.vrf.decompile,
-                input_path,
-                args.get("output_path")
-            )
-
-        elif tool_name == "export_gltf":
-            model_path = args.get("model_path") if args else None
-            output_path = args.get("output_path") if args else None
-            if not model_path:
-                return {"success": False, "error": "model_path is required"}
-            if not output_path:
-                return {"success": False, "error": "output_path is required"}
-            return await loop.run_in_executor(
-                None,
-                self.vrf.export_gltf,
-                model_path,
-                output_path,
-                args.get("include_animations", True),
-                args.get("include_materials", True)
-            )
-
-        elif tool_name == "extract_texture":
-            texture_path = args.get("texture_path") if args else None
-            output_path = args.get("output_path") if args else None
-            if not texture_path:
-                return {"success": False, "error": "texture_path is required"}
-            if not output_path:
-                return {"success": False, "error": "output_path is required"}
-            return await loop.run_in_executor(
-                None,
-                self.vrf.extract_texture,
-                texture_path,
-                output_path,
-                args.get("decode_flags", "auto")
-            )
-
-        elif tool_name == "get_file_info":
-            file_path = args.get("file_path") if args else None
-            if not file_path:
-                return {"success": False, "error": "file_path is required"}
-            return await loop.run_in_executor(None, self.vrf.get_file_info, file_path)
-
-        elif tool_name == "list_directory_resources":
-            directory = args.get("directory") if args else None
-            if not directory:
-                return {"success": False, "error": "directory is required"}
-            return await loop.run_in_executor(
-                None,
-                self._list_directory_resources,
-                directory,
-                args.get("extension_filter"),
-                args.get("recursive", False)
-            )
-
-        elif tool_name == "verify_vpk":
-            vpk_path = args.get("vpk_path") if args else None
-            if not vpk_path:
-                return {"success": False, "error": "vpk_path is required"}
-            return await loop.run_in_executor(None, self.vrf.verify_vpk, vpk_path)
-
-        elif tool_name == "decompile_vpk":
-            vpk_path = args.get("vpk_path") if args else None
-            output_path = args.get("output_path") if args else None
-            if not vpk_path:
-                return {"success": False, "error": "vpk_path is required"}
-            if not output_path:
-                return {"success": False, "error": "output_path is required"}
-            return await loop.run_in_executor(
-                None,
-                self.vrf.decompile_vpk,
-                vpk_path,
-                output_path,
-                args.get("extension_filter"),
-                args.get("path_filter"),
-                args.get("recursive", False)
-            )
-
-        elif tool_name == "collect_stats":
-            input_path = args.get("input_path") if args else None
-            if not input_path:
-                return {"success": False, "error": "input_path is required"}
-            return await loop.run_in_executor(
-                None,
-                self.vrf.collect_stats,
-                input_path,
-                args.get("include_files", False),
-                args.get("unique_deps", False),
-                args.get("particles", False),
-                args.get("vbib", False)
-            )
-
-        elif tool_name == "export_gltf_advanced":
-            model_path = args.get("model_path") if args else None
-            output_path = args.get("output_path") if args else None
-            if not model_path:
-                return {"success": False, "error": "model_path is required"}
-            if not output_path:
-                return {"success": False, "error": "output_path is required"}
-            return await loop.run_in_executor(
-                None,
-                self.vrf.export_gltf_advanced,
-                model_path,
-                output_path,
-                args.get("include_animations", True),
-                args.get("include_materials", True),
-                args.get("animation_list"),
-                args.get("mesh_list"),
-                args.get("textures_adapt", False),
-                args.get("export_extras", False),
-                args.get("vpk_path")
-            )
-
-        else:
-            return {"success": False, "error": f"Unknown tool: {tool_name}"}
-
-    def _list_directory_resources(self, directory: str,
-                                   extension_filter: Optional[str] = None,
-                                   recursive: bool = False) -> dict[str, Any]:
-        """List resource files in a directory."""
-        if not directory:
-            return {
-                "success": False,
-                "error": "Directory path is empty",
-                "directory": ""
-            }
-
-        path = Path(directory)
-
-        if not path.exists() or not path.is_dir():
-            return {
-                "success": False,
-                "error": "Directory not found",
-                "directory": directory if directory else "unknown"
-            }
-
-        # Default Source 2 extensions
-        if extension_filter:
-            extensions = [f".{ext.strip('.')}" for ext in extension_filter.split(",")]
-        else:
-            extensions = [
-                ".vmdl", ".vmat", ".vtex", ".vani", ".vsndevts",
-                ".vpcf", ".vmap", ".vrad", ".vrml", ".vrml_c",
-                ".vbsp", ".vcd", ".vpk"
-            ]
-
-        files = []
-        pattern = "**/*" if recursive else "*"
-
-        for ext in extensions:
-            for f in path.glob(f"{pattern}{ext}"):
-                if f.is_file():
-                    files.append(f)
-
-        # Also look for compiled versions (e.g., .vmdl_c)
-        # Strip any existing _c suffix before adding to avoid .vmdl_c_c
-        compiled_extensions = [f".{ext.strip('.').rstrip('_c')}_c" for ext in extensions]
-        for ext in compiled_extensions:
-            for f in path.glob(f"{pattern}{ext}"):
-                if f.is_file():
-                    files.append(f)
-
-        # Get unique files and create list
-        unique_files = sorted(set(f.relative_to(path) for f in files))
-
+    if returncode != 0:
         return {
-            "success": True,
-            "directory": directory if directory else "unknown",
-            "files": [str(f) for f in unique_files],
-            "file_count": len(unique_files)
+            "success": False,
+            "error": stderr or "无法导出 glTF",
+            "input": model_path
         }
 
+    return {
+        "success": True,
+        "input": model_path,
+        "output": output_path,
+        "format": "glb"
+    }
+
+
+async def handle_export_gltf_advanced(args: dict) -> dict:
+    """高级 glTF 导出"""
+    model_path = args.get("model_path")
+    output_path = args.get("output_path")
+
+    if not model_path:
+        return {"success": False, "error": "model_path 是必填参数"}
+    if not output_path:
+        return {"success": False, "error": "output_path 是必填参数"}
+
+    include_animations = args.get("include_animations", True)
+    include_materials = args.get("include_materials", True)
+    animation_list = args.get("animation_list")
+    mesh_list = args.get("mesh_list")
+    textures_adapt = args.get("textures_adapt", False)
+    export_extras = args.get("export_extras", False)
+    vpk_path = args.get("vpk_path")
+
+    if vpk_path:
+        cli_args = ["-i", vpk_path, "--vpk_filepath", model_path, "-d"]
+    else:
+        cli_args = ["-i", model_path, "-d"]
+
+    cli_args.extend(["--gltf_export_format", "glb", "-o", output_path])
+
+    if include_animations:
+        cli_args.append("--gltf_export_animations")
+    if include_materials:
+        cli_args.append("--gltf_export_materials")
+    if animation_list:
+        cli_args.extend(["--gltf_animation_list", animation_list])
+    if mesh_list:
+        cli_args.extend(["--gltf_mesh_list", mesh_list])
+    if textures_adapt:
+        cli_args.append("--gltf_textures_adapt")
+    if export_extras:
+        cli_args.append("--gltf_export_extras")
+
+    returncode, stdout, stderr = await run_cli_async(cli_args, timeout=180)
+
+    if returncode != 0:
+        return {
+            "success": False,
+            "error": stderr or "无法导出 glTF",
+            "input": model_path
+        }
+
+    return {
+        "success": True,
+        "input": model_path,
+        "output": output_path,
+        "format": "glb"
+    }
+
+
+async def handle_extract_texture(args: dict) -> dict:
+    """提取纹理"""
+    texture_path = args.get("texture_path")
+    output_path = args.get("output_path")
+
+    if not texture_path:
+        return {"success": False, "error": "texture_path 是必填参数"}
+    if not output_path:
+        return {"success": False, "error": "output_path 是必填参数"}
+
+    decode_flags = args.get("decode_flags", "auto")
+
+    # 处理 VPK 内部路径格式
+    if "::" in texture_path:
+        parts = texture_path.split("::", 1)
+        vpk_path = parts[0]
+        internal_path = parts[1] if len(parts) > 1 else ""
+        cli_args = [
+            "-i", vpk_path,
+            "--vpk_filepath", internal_path,
+            "--decompile",
+            "--texture_decode_flags", decode_flags,
+            "-o", output_path
+        ]
+    else:
+        cli_args = [
+            "-i", texture_path,
+            "--decompile",
+            "--texture_decode_flags", decode_flags,
+            "-o", output_path
+        ]
+
+    returncode, stdout, stderr = await run_cli_async(cli_args, timeout=120)
+
+    if returncode != 0:
+        return {
+            "success": False,
+            "error": stderr or "无法提取纹理",
+            "input": texture_path
+        }
+
+    return {
+        "success": True,
+        "input": texture_path,
+        "output": output_path
+    }
+
+
+async def handle_list_directory_resources(args: dict) -> dict:
+    """列出目录中的资源"""
+    directory = args.get("directory")
+    if not directory:
+        return {"success": False, "error": "directory 是必填参数"}
+
+    extension_filter = args.get("extension_filter")
+    recursive = args.get("recursive", False)
+
+    path = Path(directory)
+    if not path.exists() or not path.is_dir():
+        return {"success": False, "error": "目录不存在", "directory": directory}
+
+    # 默认 Source 2 扩展名
+    if extension_filter:
+        extensions = [f".{ext.strip('.')}" for ext in extension_filter.split(",")]
+    else:
+        extensions = [
+            ".vmdl", ".vmat", ".vtex", ".vani", ".vsndevts",
+            ".vpcf", ".vmap", ".vrad", ".vrml", ".vrml_c",
+            ".vbsp", ".vcd", ".vpk"
+        ]
+
+    files = []
+    pattern = "**/*" if recursive else "*"
+
+    for ext in extensions:
+        for f in path.glob(f"{pattern}{ext}"):
+            if f.is_file():
+                files.append(str(f))
+
+    # 也查找编译版本
+    compiled_extensions = [f".{ext.rstrip('_c')}_c" for ext in extensions]
+    for ext in compiled_extensions:
+        for f in path.glob(f"{pattern}{ext}"):
+            if f.is_file():
+                files.append(str(f))
+
+    unique_files = sorted(set(files))
+
+    return {
+        "success": True,
+        "directory": directory,
+        "files": [str(Path(f).relative_to(path)) for f in unique_files],
+        "file_count": len(unique_files)
+    }
+
+
+async def handle_verify_vpk(args: dict) -> dict:
+    """验证 VPK"""
+    vpk_path = args.get("vpk_path")
+    if not vpk_path:
+        return {"success": False, "error": "vpk_path 是必填参数"}
+
+    cli_args = ["-i", vpk_path, "--vpk_verify"]
+
+    returncode, stdout, stderr = await run_cli_async(cli_args, timeout=120)
+
+    if returncode != 0:
+        return {
+            "success": False,
+            "error": stderr or "无法验证 VPK",
+            "vpk": vpk_path
+        }
+
+    return {
+        "success": True,
+        "vpk": vpk_path,
+        "output": stdout
+    }
+
+
+async def handle_decompile_vpk(args: dict) -> dict:
+    """批量反编译 VPK"""
+    vpk_path = args.get("vpk_path")
+    output_path = args.get("output_path")
+
+    if not vpk_path:
+        return {"success": False, "error": "vpk_path 是必填参数"}
+    if not output_path:
+        return {"success": False, "error": "output_path 是必填参数"}
+
+    extension_filter = args.get("extension_filter")
+    path_filter = args.get("path_filter")
+    recursive = args.get("recursive", False)
+
+    cli_args = ["-i", vpk_path, "-o", output_path, "-d"]
+
+    if extension_filter:
+        cli_args.extend(["--vpk_extensions", extension_filter])
+    if path_filter:
+        cli_args.extend(["--vpk_filepath", path_filter])
+    if recursive:
+        cli_args.append("--recursive_vpk")
+
+    returncode, stdout, stderr = await run_cli_async(cli_args, timeout=600)
+
+    if returncode != 0:
+        return {
+            "success": False,
+            "error": stderr or "无法反编译 VPK",
+            "vpk": vpk_path
+        }
+
+    return {
+        "success": True,
+        "vpk": vpk_path,
+        "output_path": output_path,
+        "output": stdout
+    }
+
+
+async def handle_collect_stats(args: dict) -> dict:
+    """收集统计信息"""
+    input_path = args.get("input_path")
+    if not input_path:
+        return {"success": False, "error": "input_path 是必填参数"}
+
+    include_files = args.get("include_files", False)
+    unique_deps = args.get("unique_deps", False)
+    particles = args.get("particles", False)
+    vbib = args.get("vbib", False)
+
+    cli_args = ["-i", input_path, "--stats"]
+
+    if include_files:
+        cli_args.append("--stats_print_files")
+    if unique_deps:
+        cli_args.append("--stats_unique_deps")
+    if particles:
+        cli_args.append("--stats_particles")
+    if vbib:
+        cli_args.append("--stats_vbib")
+
+    returncode, stdout, stderr = await run_cli_async(cli_args, timeout=300)
+
+    if returncode != 0:
+        return {
+            "success": False,
+            "error": stderr or "无法收集统计",
+            "input": input_path
+        }
+
+    return {
+        "success": True,
+        "input": input_path,
+        "output": stdout
+    }
+
+
+# ============================================================
+# 辅助函数
+# ============================================================
+
+def _format_size(size: int) -> str:
+    """格式化字节大小为可读字符串"""
+    if size < 0:
+        size = 0
+    for unit in ['B', 'KB', 'MB', 'GB']:
+        if size < 1024:
+            return f"{size:.2f} {unit}"
+        size /= 1024
+    return f"{size:.2f} TB"
+
+
+def run_cli_sync(args: list[str], timeout: int = 60) -> tuple[int, str, str]:
+    """同步执行 CLI（用于线程池）"""
+    return run_cli(args, timeout)
+
+
+async def run_cli_async(args: list[str], timeout: int = 60) -> tuple[int, str, str]:
+    """异步执行 CLI"""
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, run_cli, args, timeout)
+
+
+# ============================================================
+# MCP 服务器主程序
+# ============================================================
 
 async def main():
-    """Main entry point for the MCP server."""
-    parser = argparse.ArgumentParser(description="ValveResourceFormat MCP Server")
-    parser.add_argument(
-        "--cli-path",
-        type=str,
-        help="Path to the VRF CLI executable"
-    )
-    parser.add_argument(
-        "--port",
-        type=int,
-        default=8765,
-        help="Port to listen on (for stdio mode, this is ignored)"
-    )
+    """主入口点"""
+    import asyncio
 
-    args = parser.parse_args()
-
-    # Try to get CLI path from environment variable
-    cli_path = args.cli_path or os.environ.get("VRF_CLI_PATH")
-
+    # 检查 CLI 是否可用
     try:
-        server = MCPServer(cli_path)
+        get_cli_path()
     except FileNotFoundError as e:
-        error_msg = str(e) if str(e) else "VRF CLI executable not found"
         print(json.dumps({
             "jsonrpc": "2.0",
             "id": 1,
             "error": {
                 "code": -32000,
-                "message": error_msg
+                "message": str(e)
             }
         }), file=sys.stderr)
         sys.exit(1)
 
-    # Read requests from stdin and write responses to stdout
-    # This follows the MCP stdio protocol
-    while True:
-        try:
-            line = sys.stdin.readline()
-            if not line:
-                break
+    server = Server("vrf-mcp-server", "1.1.0")
+    tools = create_tools()
 
-            line = line.strip()
-            if not line:
-                continue
+    @server.list_tools()
+    async def list_tools() -> list[Tool]:
+        return tools
 
-            try:
-                request = json.loads(line)
-            except json.JSONDecodeError:
-                response = {
-                    "jsonrpc": "2.0",
-                    "id": None,
-                    "error": {
-                        "code": -32700,
-                        "message": "Parse error"
-                    }
-                }
-                print(json.dumps(response))
-                sys.stdout.flush()
-                continue
+    @server.call_tool()
+    async def call_tool(name: str, arguments: dict) -> list[TextContent]:
+        handlers = {
+            "get_file_info": handle_get_file_info,
+            "list_vpk_contents": handle_list_vpk_contents,
+            "inspect_file": handle_inspect_file,
+            "decompile_resource": handle_decompile_resource,
+            "export_gltf": handle_export_gltf,
+            "export_gltf_advanced": handle_export_gltf_advanced,
+            "extract_texture": handle_extract_texture,
+            "list_directory_resources": handle_list_directory_resources,
+            "verify_vpk": handle_verify_vpk,
+            "decompile_vpk": handle_decompile_vpk,
+            "collect_stats": handle_collect_stats,
+        }
 
-            response = await server.handle_request(request)
-            print(json.dumps(response))
-            sys.stdout.flush()
+        handler = handlers.get(name)
+        if not handler:
+            return [TextContent(type="text", text=json.dumps({
+                "success": False,
+                "error": f"未知工具: {name}"
+            }))]
 
-        except Exception as e:
-            error_msg = str(e) if str(e) else "Unknown server error occurred"
-            error_response = {
-                "jsonrpc": "2.0",
-                "id": None,
-                "error": {
-                    "code": -32000,
-                    "message": f"Server error: {error_msg}"
-                }
-            }
-            print(json.dumps(error_response))
-            sys.stdout.flush()
+        result = await handler(arguments)
+        return [TextContent(type="text", text=json.dumps(result, ensure_ascii=False))]
+
+    async with stdio_server() as (read_stream, write_stream):
+        await server.run(read_stream, write_stream, server.create_initialization_options())
 
 
 if __name__ == "__main__":
