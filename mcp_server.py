@@ -33,7 +33,7 @@ VRF_CLI_PATH: Optional[str] = None
 
 
 def get_cli_path() -> str:
-    """获取 CLI 路径，优先从环境变量读取"""
+    """获取 CLI 路径，从环境变量读取"""
     global VRF_CLI_PATH
     if VRF_CLI_PATH:
         return VRF_CLI_PATH
@@ -42,18 +42,6 @@ def get_cli_path() -> str:
     if env_path and Path(env_path).exists():
         VRF_CLI_PATH = env_path
         return env_path
-
-    # 尝试常见位置
-    script_dir = Path(__file__).parent
-    common_paths = [
-        script_dir / "cli-windows-x64" / "Source2Viewer-CLI.exe",
-        script_dir / "Source2Viewer-CLI.exe",
-    ]
-
-    for p in common_paths:
-        if p.exists():
-            VRF_CLI_PATH = str(p)
-            return str(p)
 
     error_msg = (
         f"VRF CLI not found. VRF_CLI_PATH='{env_path or '<not set>'}'. "
