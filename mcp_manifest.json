@@ -185,6 +185,11 @@
             "type": "boolean",
             "description": "是否导出额外网格属性到 glTF extras",
             "default": false
+          },
+          "format": {
+            "type": "string",
+            "description": "导出格式，gltf 或 glb",
+            "default": "glb"
           }
         },
         "required": ["model_path", "output_path"]
@@ -264,9 +269,186 @@
             "type": "boolean",
             "description": "是否收集顶点属性统计",
             "default": false
+          },
+          "with_loader": {
+            "type": "boolean",
+            "description": "使用 GameFileLoader 加载依赖项",
+            "default": false
+          },
+          "gltf_test": {
+            "type": "boolean",
+            "description": "测试每个支持文件的 glTF 导出代码路径",
+            "default": false
           }
         },
         "required": ["input_path"]
+      }
+    },
+    {
+      "name": "vpk_dir",
+      "description": "显示 VPK 归档的详细目录信息，包括文件偏移、CRC、元数据大小、文件编号等。相当于 CLI 的 --vpk_dir 选项。",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "vpk_path": {
+            "type": "string",
+            "description": "VPK 文件路径"
+          }
+        },
+        "required": ["vpk_path"]
+      }
+    },
+    {
+      "name": "inspect_block",
+      "description": "检查 Source 2 资源文件的结构、块和数据。支持 -a 打印所有块内容，-b 指定特定块名称。",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "file_path": {
+            "type": "string",
+            "description": "资源文件路径，支持 'vpk_path::internal_path' 格式"
+          },
+          "print_all": {
+            "type": "boolean",
+            "description": "打印每个资源块的全部内容",
+            "default": false
+          },
+          "block_name": {
+            "type": "string",
+            "description": "只打印指定块，如 DATA, RERL, REDI, NTRO"
+          }
+        },
+        "required": ["file_path"]
+      }
+    },
+    {
+      "name": "set_threads",
+      "description": "设置处理文件时的线程数，用于加速批量处理。相当于 CLI 的 --threads 选项。",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "thread_count": {
+            "type": "integer",
+            "description": "线程数量，1 表示单线程，大于 1 表示并发处理",
+            "default": 1
+          }
+        }
+      }
+    },
+    {
+      "name": "vpk_cache",
+      "description": "使用 VPK 缓存清单跟踪更新，只写入变更的文件。相当于 CLI 的 --vpk_cache 选项。",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "vpk_path": {
+            "type": "string",
+            "description": "VPK 文件路径"
+          },
+          "output_path": {
+            "type": "string",
+            "description": "输出目录"
+          },
+          "use_cache": {
+            "type": "boolean",
+            "description": "是否使用缓存",
+            "default": true
+          }
+        },
+        "required": ["vpk_path", "output_path"]
+      }
+    },
+    {
+      "name": "gltf_export",
+      "description": "将 3D 模型（.vmdl）导出为 glTF 或 glb 格式。相当于 CLI 的 --gltf_export_format 选项。",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "model_path": {
+            "type": "string",
+            "description": "模型文件路径（.vmdl），支持 VPK 内部路径"
+          },
+          "output_path": {
+            "type": "string",
+            "description": "输出 glTF/glb 文件路径"
+          },
+          "format": {
+            "type": "string",
+            "description": "导出格式，gltf 或 glb",
+            "default": "glb"
+          },
+          "include_animations": {
+            "type": "boolean",
+            "description": "是否包含动画",
+            "default": true
+          },
+          "include_materials": {
+            "type": "boolean",
+            "description": "是否包含材质",
+            "default": true
+          },
+          "animation_list": {
+            "type": "string",
+            "description": "逗号分隔的要包含的动画名称列表"
+          },
+          "mesh_list": {
+            "type": "string",
+            "description": "逗号分隔的要包含的网格名称列表"
+          },
+          "textures_adapt": {
+            "type": "boolean",
+            "description": "对纹理执行 glTF 规范适配",
+            "default": false
+          },
+          "export_extras": {
+            "type": "boolean",
+            "description": "将额外的网格属性导出到 glTF extras",
+            "default": false
+          },
+          "vpk_path": {
+            "type": "string",
+            "description": "如果 model_path 是内部路径，需要指定此 VPK 路径"
+          }
+        },
+        "required": ["model_path", "output_path"]
+      }
+    },
+    {
+      "name": "dump_unknown_keys",
+      "description": "收集统计信息时保存所有未知实体键哈希到 unknown_keys.txt。相当于 CLI 的 --dump_unknown_entity_keys 选项。",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "input_path": {
+            "type": "string",
+            "description": "文件/文件夹/VPK 路径，或 'steam' 扫描所有 Steam 库"
+          },
+          "include_files": {
+            "type": "boolean",
+            "description": "是否打印示例文件名",
+            "default": false
+          }
+        },
+        "required": ["input_path"]
+      }
+    },
+    {
+      "name": "tools_asset_info",
+      "description": "获取工具资源信息，支持简短模式只打印路径。相当于 CLI 的 --tools_asset_info_short 选项。",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "file_path": {
+            "type": "string",
+            "description": "资源文件路径，支持 'vpk_path::internal_path' 格式"
+          },
+          "short": {
+            "type": "boolean",
+            "description": "简短模式，只打印文件路径",
+            "default": false
+          }
+        },
+        "required": ["file_path"]
       }
     }
   ]

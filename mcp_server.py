@@ -386,9 +386,186 @@ def create_tools() -> list[Tool]:
                         "type": "boolean",
                         "description": "收集顶点属性统计",
                         "default": False
+                    },
+                    "with_loader": {
+                        "type": "boolean",
+                        "description": "使用 GameFileLoader 加载依赖项",
+                        "default": False
+                    },
+                    "gltf_test": {
+                        "type": "boolean",
+                        "description": "测试每个支持文件的 glTF 导出代码路径",
+                        "default": False
                     }
                 },
                 "required": ["input_path"]
+            }
+        ),
+        Tool(
+            name="vpk_dir",
+            description="显示 VPK 归档的详细目录信息，包括文件偏移、CRC、元数据大小等",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "vpk_path": {
+                        "type": "string",
+                        "description": "VPK 文件路径"
+                    }
+                },
+                "required": ["vpk_path"]
+            }
+        ),
+        Tool(
+            name="inspect_block",
+            description="检查 Source 2 资源文件的结构、块和数据。支持 -a 打印所有块，-b 指定特定块",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "file_path": {
+                        "type": "string",
+                        "description": "资源文件路径，支持 'vpk_path::internal_path' 格式"
+                    },
+                    "print_all": {
+                        "type": "boolean",
+                        "description": "打印每个资源块的全部内容 (-a)",
+                        "default": False
+                    },
+                    "block_name": {
+                        "type": "string",
+                        "description": "只打印指定块，如 DATA, RERL, REDI, NTRO (-b)"
+                    }
+                },
+                "required": ["file_path"]
+            }
+        ),
+        Tool(
+            name="set_threads",
+            description="设置处理文件时的线程数，用于加速批量处理",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "thread_count": {
+                        "type": "integer",
+                        "description": "线程数量，1 表示单线程，大于 1 表示并发处理",
+                        "default": 1
+                    }
+                }
+            }
+        ),
+        Tool(
+            name="vpk_cache",
+            description="使用 VPK 缓存清单跟踪更新，只写入变更的文件",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "vpk_path": {
+                        "type": "string",
+                        "description": "VPK 文件路径"
+                    },
+                    "output_path": {
+                        "type": "string",
+                        "description": "输出目录"
+                    },
+                    "use_cache": {
+                        "type": "boolean",
+                        "description": "是否使用缓存",
+                        "default": True
+                    }
+                },
+                "required": ["vpk_path", "output_path"]
+            }
+        ),
+        Tool(
+            name="gltf_export",
+            description="将 3D 模型（.vmdl）导出为 glTF 或 glb 格式",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "model_path": {
+                        "type": "string",
+                        "description": "模型文件路径（.vmdl），支持 VPK 内部路径"
+                    },
+                    "output_path": {
+                        "type": "string",
+                        "description": "输出 glTF/glb 文件路径"
+                    },
+                    "format": {
+                        "type": "string",
+                        "description": "导出格式，gltf 或 glb",
+                        "default": "glb"
+                    },
+                    "include_animations": {
+                        "type": "boolean",
+                        "description": "是否包含动画",
+                        "default": True
+                    },
+                    "include_materials": {
+                        "type": "boolean",
+                        "description": "是否包含材质",
+                        "default": True
+                    },
+                    "animation_list": {
+                        "type": "string",
+                        "description": "逗号分隔的要包含的动画名称列表"
+                    },
+                    "mesh_list": {
+                        "type": "string",
+                        "description": "逗号分隔的要包含的网格名称列表"
+                    },
+                    "textures_adapt": {
+                        "type": "boolean",
+                        "description": "对纹理执行 glTF 规范适配",
+                        "default": False
+                    },
+                    "export_extras": {
+                        "type": "boolean",
+                        "description": "将额外的网格属性导出到 glTF extras",
+                        "default": False
+                    },
+                    "vpk_path": {
+                        "type": "string",
+                        "description": "如果 model_path 是内部路径，需要指定此 VPK 路径"
+                    }
+                },
+                "required": ["model_path", "output_path"]
+            }
+        ),
+        Tool(
+            name="dump_unknown_keys",
+            description="收集统计信息时保存所有未知实体键哈希到 unknown_keys.txt",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "input_path": {
+                        "type": "string",
+                        "description": "文件/文件夹/VPK 路径，或 'steam' 扫描所有 Steam 库"
+                    },
+                    "include_files": {
+                        "type": "boolean",
+                        "description": "是否打印示例文件名",
+                        "default": False
+                    }
+                },
+                "required": ["input_path"]
+            }
+        ),
+        Tool(
+            name="tools_asset_info",
+            description="获取工具资源信息，支持简短模式只打印路径",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "file_path": {
+                        "type": "string",
+                        "description": "资源文件路径，支持 'vpk_path::internal_path' 格式"
+                    },
+                    "short": {
+                        "type": "boolean",
+                        "description": "简短模式，只打印文件路径",
+                        "default": False
+                    }
+                },
+                "required": ["file_path"]
             }
         ),
     ]
@@ -600,6 +777,7 @@ async def handle_export_gltf_advanced(args: dict) -> dict:
     textures_adapt = args.get("textures_adapt", False)
     export_extras = args.get("export_extras", False)
     vpk_path = args.get("vpk_path")
+    format_type = args.get("format", "glb")
 
     # 处理 VPK 内部路径格式
     if "::" in model_path:
@@ -612,7 +790,7 @@ async def handle_export_gltf_advanced(args: dict) -> dict:
     else:
         cli_args = ["-i", model_path, "-d"]
 
-    cli_args.extend(["--gltf_export_format", "glb", "-o", output_path])
+    cli_args.extend(["--gltf_export_format", format_type, "-o", output_path])
 
     if include_animations:
         cli_args.append("--gltf_export_animations")
@@ -814,6 +992,8 @@ async def handle_collect_stats(args: dict) -> dict:
     unique_deps = args.get("unique_deps", False)
     particles = args.get("particles", False)
     vbib = args.get("vbib", False)
+    with_loader = args.get("with_loader", False)
+    gltf_test = args.get("gltf_test", False)
 
     cli_args = ["-i", input_path, "--stats"]
 
@@ -825,8 +1005,12 @@ async def handle_collect_stats(args: dict) -> dict:
         cli_args.append("--stats_particles")
     if vbib:
         cli_args.append("--stats_vbib")
+    if with_loader:
+        cli_args.append("--stats_with_loader")
+    if gltf_test:
+        cli_args.append("--gltf_test")
 
-    returncode, stdout, stderr = await run_cli_async(cli_args, timeout=300)
+    returncode, stdout, stderr = await run_cli_async(cli_args, timeout=600)
 
     if returncode != 0:
         return {
@@ -838,6 +1022,244 @@ async def handle_collect_stats(args: dict) -> dict:
     return {
         "success": True,
         "input": input_path,
+        "output": stdout
+    }
+
+
+async def handle_vpk_dir(args: dict) -> dict:
+    """显示 VPK 详细目录信息"""
+    vpk_path = args.get("vpk_path")
+    if not vpk_path:
+        return {"success": False, "error": "vpk_path 是必填参数"}
+
+    cli_args = ["-i", vpk_path, "--vpk_dir"]
+
+    returncode, stdout, stderr = await run_cli_async(cli_args, timeout=120)
+
+    if returncode != 0:
+        return {
+            "success": False,
+            "error": stderr or "无法获取 VPK 目录",
+            "vpk": vpk_path
+        }
+
+    return {
+        "success": True,
+        "vpk": vpk_path,
+        "output": stdout
+    }
+
+
+async def handle_inspect_block(args: dict) -> dict:
+    """检查资源文件块"""
+    file_path = args.get("file_path")
+    if not file_path:
+        return {"success": False, "error": "file_path 是必填参数"}
+
+    print_all = args.get("print_all", False)
+    block_name = args.get("block_name")
+
+    # 处理 VPK 内部路径格式
+    if "::" in file_path:
+        parts = file_path.split("::", 1)
+        vpk_path = parts[0]
+        internal_path = parts[1] if len(parts) > 1 else ""
+        cli_args = ["-i", vpk_path, "--vpk_filepath", internal_path]
+    else:
+        cli_args = ["-i", file_path]
+
+    if print_all:
+        cli_args.append("-a")
+    elif block_name:
+        cli_args.extend(["-b", block_name])
+
+    returncode, stdout, stderr = await run_cli_async(cli_args, timeout=120)
+
+    if returncode != 0:
+        return {
+            "success": False,
+            "error": stderr or "无法检查文件",
+            "file": file_path
+        }
+
+    return {
+        "success": True,
+        "file": file_path,
+        "output": stdout
+    }
+
+
+async def handle_set_threads(args: dict) -> dict:
+    """设置线程数"""
+    thread_count = args.get("thread_count", 1)
+
+    if thread_count < 1:
+        return {"success": False, "error": "线程数必须大于 0"}
+
+    return {
+        "success": True,
+        "thread_count": thread_count,
+        "message": f"线程数已设置为 {thread_count}"
+    }
+
+
+async def handle_vpk_cache(args: dict) -> dict:
+    """VPK 缓存反编译"""
+    vpk_path = args.get("vpk_path")
+    output_path = args.get("output_path")
+
+    if not vpk_path:
+        return {"success": False, "error": "vpk_path 是必填参数"}
+    if not output_path:
+        return {"success": False, "error": "output_path 是必填参数"}
+
+    use_cache = args.get("use_cache", True)
+
+    cli_args = ["-i", vpk_path, "-o", output_path, "-d"]
+
+    if use_cache:
+        cli_args.append("--vpk_cache")
+
+    returncode, stdout, stderr = await run_cli_async(cli_args, timeout=600)
+
+    if returncode != 0:
+        return {
+            "success": False,
+            "error": stderr or "无法反编译 VPK",
+            "vpk": vpk_path
+        }
+
+    return {
+        "success": True,
+        "vpk": vpk_path,
+        "output_path": output_path,
+        "output": stdout
+    }
+
+
+async def handle_gltf_export(args: dict) -> dict:
+    """glTF/glb 导出"""
+    model_path = args.get("model_path")
+    output_path = args.get("output_path")
+
+    if not model_path:
+        return {"success": False, "error": "model_path 是必填参数"}
+    if not output_path:
+        return {"success": False, "error": "output_path 是必填参数"}
+
+    format_type = args.get("format", "glb")
+    include_animations = args.get("include_animations", True)
+    include_materials = args.get("include_materials", True)
+    animation_list = args.get("animation_list")
+    mesh_list = args.get("mesh_list")
+    textures_adapt = args.get("textures_adapt", False)
+    export_extras = args.get("export_extras", False)
+    vpk_path = args.get("vpk_path")
+
+    # 处理 VPK 内部路径格式
+    if "::" in model_path:
+        parts = model_path.split("::", 1)
+        actual_vpk_path = parts[0]
+        internal_path = parts[1] if len(parts) > 1 else ""
+        cli_args = ["-i", actual_vpk_path, "--vpk_filepath", internal_path, "-d"]
+    elif vpk_path:
+        cli_args = ["-i", vpk_path, "--vpk_filepath", model_path, "-d"]
+    else:
+        cli_args = ["-i", model_path, "-d"]
+
+    cli_args.extend(["--gltf_export_format", format_type, "-o", output_path])
+
+    if include_animations:
+        cli_args.append("--gltf_export_animations")
+    if include_materials:
+        cli_args.append("--gltf_export_materials")
+    if animation_list:
+        cli_args.extend(["--gltf_animation_list", animation_list])
+    if mesh_list:
+        cli_args.extend(["--gltf_mesh_list", mesh_list])
+    if textures_adapt:
+        cli_args.append("--gltf_textures_adapt")
+    if export_extras:
+        cli_args.append("--gltf_export_extras")
+
+    returncode, stdout, stderr = await run_cli_async(cli_args, timeout=180)
+
+    if returncode != 0:
+        return {
+            "success": False,
+            "error": stderr or "无法导出 glTF",
+            "input": model_path
+        }
+
+    return {
+        "success": True,
+        "input": model_path,
+        "output": output_path,
+        "format": format_type
+    }
+
+
+async def handle_dump_unknown_keys(args: dict) -> dict:
+    """保存未知实体键哈希"""
+    input_path = args.get("input_path")
+    if not input_path:
+        return {"success": False, "error": "input_path 是必填参数"}
+
+    include_files = args.get("include_files", False)
+
+    cli_args = ["-i", input_path, "--stats", "--dump_unknown_entity_keys"]
+
+    if include_files:
+        cli_args.append("--stats_print_files")
+
+    returncode, stdout, stderr = await run_cli_async(cli_args, timeout=600)
+
+    if returncode != 0:
+        return {
+            "success": False,
+            "error": stderr or "无法保存未知实体键",
+            "input": input_path
+        }
+
+    return {
+        "success": True,
+        "input": input_path,
+        "output": stdout
+    }
+
+
+async def handle_tools_asset_info(args: dict) -> dict:
+    """工具资源信息"""
+    file_path = args.get("file_path")
+    if not file_path:
+        return {"success": False, "error": "file_path 是必填参数"}
+
+    short = args.get("short", False)
+
+    # 处理 VPK 内部路径格式
+    if "::" in file_path:
+        parts = file_path.split("::", 1)
+        vpk_path = parts[0]
+        internal_path = parts[1] if len(parts) > 1 else ""
+        cli_args = ["-i", vpk_path, "--vpk_filepath", internal_path]
+    else:
+        cli_args = ["-i", file_path]
+
+    if short:
+        cli_args.append("--tools_asset_info_short")
+
+    returncode, stdout, stderr = await run_cli_async(cli_args, timeout=60)
+
+    if returncode != 0:
+        return {
+            "success": False,
+            "error": stderr or "无法获取工具资源信息",
+            "file": file_path
+        }
+
+    return {
+        "success": True,
+        "file": file_path,
         "output": stdout
     }
 
@@ -906,6 +1328,13 @@ async def main():
             "verify_vpk": handle_verify_vpk,
             "decompile_vpk": handle_decompile_vpk,
             "collect_stats": handle_collect_stats,
+            "vpk_dir": handle_vpk_dir,
+            "inspect_block": handle_inspect_block,
+            "set_threads": handle_set_threads,
+            "vpk_cache": handle_vpk_cache,
+            "gltf_export": handle_gltf_export,
+            "dump_unknown_keys": handle_dump_unknown_keys,
+            "tools_asset_info": handle_tools_asset_info,
         }
 
         handler = handlers.get(name)
