@@ -18,6 +18,7 @@ Edit `C:\Users\Administrator\.cursor\mcp.json` (Cursor) or `C:\Users\Administrat
 {
   "mcpServers": {
     "vrf": {
+      "type": "stdio",
       "command": "python",
       "args": ["C:\\Users\\Administrator\\Documents\\GitHub\\ValveResourceFormat-MCP\\MCP\\mcp_server.py"],
       "env": {
