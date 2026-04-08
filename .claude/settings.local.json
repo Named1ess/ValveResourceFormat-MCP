@@ -9,7 +9,8 @@
       "Bash(python mcp_server.py)",
       "Bash(&)",
       "mcp__vrf__list_directory_resources",
-      "Bash(echo VRF_CLI_PATH: $VRF_CLI_PATH:*)"
+      "Bash(echo VRF_CLI_PATH: $VRF_CLI_PATH:*)",
+      "mcp__vrf__list_vpk_contents"
     ]
   }
 }
