@@ -1,0 +1,57 @@
+name: Build and Sync VRF
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # 每天自动检查并编译一次
+  workflow_dispatch:   # 允许你点击按钮手动立即编译
+
+jobs:
+  build:
+    runs-on: windows-latest # VRF 包含 GUI 组件，使用 Windows 运行环境最稳妥
+
+    steps:
+      # 1. 检出你自己的仓库
+      - name: Checkout your repo
+        uses: actions/checkout@v4
+        with:
+          path: my-repo
+
+      # 2. 检出 ValveResourceFormat 仓库
+      - name: Checkout VRF
+        uses: actions/checkout@v4
+        with:
+          repository: ValveResourceFormat/ValveResourceFormat
+          path: vrf-source
+          submodules: recursive # 处理子模块
+
+      # 3. 设置 .NET 环境
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x' # 根据该项目需求选择版本
+
+      # 4. 编译项目 (以编译 CLI 工具为例)
+      - name: Build VRF CLI
+        run: |
+          dotnet publish vrf-source/CLI/CLI.csproj -c Release -r win-x64 --self-contained -o ./publish-cli
+
+      # 5. 将所有生成的文件打包成 ZIP
+      - name: Bundle binaries into ZIP
+        shell: pwsh
+        run: |
+          # 压缩 publish-cli 文件夹下的所有内容到 vrf-cli-windows.zip
+          Compress-Archive -Path "./publish-cli/*" -DestinationPath "./vrf-cli-windows.zip" -Force
+
+      # 6. 创建 Release 并上传 ZIP 压缩包
+      - name: Create Release and Upload Asset
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.run_number }}
+          name: "Auto-compiled VRF Build #${{ github.run_number }}"
+          body: "This is an automated build of ValveResourceFormat CLI. All files are bundled in the ZIP below."
+          draft: false
+          prerelease: false
+          # 这里直接指向你刚刚生成的压缩包
+          files: vrf-cli-windows.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
