@@ -34,59 +34,17 @@ class VRFServer:
             self.cli_path = self._find_cli()
 
         if not self.cli_path or not Path(self.cli_path).exists():
+            env_val = os.environ.get("VRF_CLI_PATH", "<not set>")
             raise FileNotFoundError(
-                f"VRF CLI not found at: {cli_path or 'default locations'}. "
-                "Please build the CLI project or specify VRF_CLI_PATH environment variable."
+                f"VRF CLI not found. VRF_CLI_PATH='{env_val}'. "
+                "Please set VRF_CLI_PATH environment variable to point to Source2Viewer-CLI.exe"
             )
 
     def _find_cli(self) -> Optional[str]:
-        """Find the VRF CLI executable."""
-        # Check environment variable
+        """Find the VRF CLI executable via VRF_CLI_PATH environment variable."""
         env_path = os.environ.get("VRF_CLI_PATH")
         if env_path and Path(env_path).exists():
             return env_path
-
-        # Check relative to this file
-        base_dir = Path(__file__).parent.parent
-        possible_names = ["Source2Viewer-CLI.exe", "CLI.exe"]
-
-        # Check directly in bin/Release or bin/Debug
-        possible_base_dirs = [
-            base_dir / "CLI" / "bin" / "Release",
-            base_dir / "CLI" / "bin" / "Debug",
-            base_dir / "CLI" / "bin" / "Release" / "net10.0" / "win-x64",
-            base_dir / "CLI" / "bin" / "Debug" / "net10.0" / "win-x64",
-            base_dir / "CLI" / "bin" / "Release" / "net9.0" / "win-x64",
-            base_dir / "CLI" / "bin" / "Debug" / "net9.0" / "win-x64",
-        ]
-
-        for dir_path in possible_base_dirs:
-            for name in possible_names:
-                path = dir_path / name
-                if path.exists():
-                    return str(path)
-
-        # Also check with runtime folder
-        runtimes = ["win-x64", "linux-x64", "osx-x64", "any"]
-        for runtime in runtimes:
-            for name in possible_names:
-                path = base_dir / "CLI" / "bin" / "Release" / "runtimes" / runtime / "native" / name
-                if path.exists():
-                    return str(path)
-
-        # Check if CLI is in PATH
-        try:
-            for name in possible_names:
-                result = subprocess.run(
-                    ["where", name],
-                    capture_output=True,
-                    text=True
-                )
-                if result.returncode == 0:
-                    return result.stdout.strip().split('\n')[0]
-        except Exception:
-            pass
-
         return None
 
     def run_cli(self, args: list[str], timeout: int = 60) -> tuple[int, str, str]:
