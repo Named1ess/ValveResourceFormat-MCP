@@ -601,7 +601,13 @@ async def handle_export_gltf_advanced(args: dict) -> dict:
     export_extras = args.get("export_extras", False)
     vpk_path = args.get("vpk_path")
 
-    if vpk_path:
+    # 处理 VPK 内部路径格式
+    if "::" in model_path:
+        parts = model_path.split("::", 1)
+        actual_vpk_path = parts[0]
+        internal_path = parts[1] if len(parts) > 1 else ""
+        cli_args = ["-i", actual_vpk_path, "--vpk_filepath", internal_path, "-d"]
+    elif vpk_path:
         cli_args = ["-i", vpk_path, "--vpk_filepath", model_path, "-d"]
     else:
         cli_args = ["-i", model_path, "-d"]
@@ -851,14 +857,9 @@ def _format_size(size: int) -> str:
     return f"{size:.2f} TB"
 
 
-def run_cli_sync(args: list[str], timeout: int = 60) -> tuple[int, str, str]:
-    """同步执行 CLI（用于线程池）"""
-    return run_cli(args, timeout)
-
-
 async def run_cli_async(args: list[str], timeout: int = 60) -> tuple[int, str, str]:
     """异步执行 CLI"""
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     return await loop.run_in_executor(None, run_cli, args, timeout)
 
 

@@ -237,22 +237,32 @@
     },
     {
       "name": "collect_stats",
-      "description": "收集资源文件的统计信息，包括各类资源的数量和粒子特效详情。",
+      "description": "收集资源文件的统计信息，包括各类资源的数量和粒子特效详情。使用 'steam' 作为输入来扫描所有 Steam 库。",
       "inputSchema": {
         "type": "object",
         "properties": {
           "input_path": {
             "type": "string",
-            "description": "文件/文件夹/VPK 路径"
+            "description": "文件/文件夹/VPK 路径，或 'steam' 扫描所有 Steam 库"
           },
           "include_files": {
             "type": "boolean",
             "description": "是否打印示例文件名",
             "default": false
           },
+          "unique_deps": {
+            "type": "boolean",
+            "description": "是否收集所有唯一依赖项",
+            "default": false
+          },
           "particles": {
             "type": "boolean",
             "description": "是否收集粒子特效统计",
+            "default": false
+          },
+          "vbib": {
+            "type": "boolean",
+            "description": "是否收集顶点属性统计",
             "default": false
           }
         },

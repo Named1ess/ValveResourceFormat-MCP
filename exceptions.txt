@@ -1,0 +1,9 @@
+---------------
+Parent file: G:\SteamLibrary\steamapps\common\Counter-Strike Global Offensive\game\csgo\shaders_pc_dir.vpk
+File: shaders/vfx/bloom_cs.ini
+Exception: System.IO.EndOfStreamException: Unable to read beyond the end of the stream.
+   at System.IO.BinaryReader.InternalRead(Span`1 buffer)
+   at System.IO.BinaryReader.ReadUInt32()
+   at ValveResourceFormat.Resource.Read(Stream input, Boolean verifyFileSize, Boolean leaveOpen) in /_/ValveResourceFormat/Resource/Resource.cs:line 182
+   at CLI.Decompiler.ProcessFile(String path, Stream stream, String originalPath, IFileLoader fileLoader) in /_/CLI/Decompiler.cs:line 632
+

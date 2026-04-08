@@ -91,8 +91,10 @@ G:\SteamLibrary\steamapps\common\Counter-Strike Global Offensive\game\csgo\pak01
 | `list_vpk_contents` | 列出 VPK 内的文件 | 探索 VPK 包内容 |
 | `inspect_file` | 检查资源文件结构 | 分析模型、材质、纹理详情 |
 | `decompile_resource` | 反编译单个资源 | 提取资源为可读格式 |
+| `decompile_vpk` | 批量反编译 VPK 内容 | 从 VPK 提取所有资源 |
 | `extract_texture` | 提取纹理为图片 | 获取游戏纹理/贴图 |
 | `export_gltf` | 导出 3D 模型为 glTF | 在其他软件中查看模型（Blender） |
+| `export_gltf_advanced` | 高级 glTF 导出 | 精细控制导出过程 |
 | `verify_vpk` | 验证 VPK 完整性 | 检查 VPK 文件是否损坏 |
 | `collect_stats` | 收集资源统计 | 统计 VPK 中各类资源数量 |
 
@@ -218,6 +220,38 @@ list_vpk_contents({
 
 ---
 
+### 场景 10：批量反编译 VPK 内容
+
+```json
+decompile_vpk({
+  "vpk_path": "G:\\SteamLibrary\\steamapps\\common\\Counter-Strike Global Offensive\\game\\csgo\\shaders_pc_dir.vpk",
+  "output_path": "C:\\temp\\shaders_output",
+  "extension_filter": "vcs",
+  "recursive": false
+})
+```
+
+**返回内容**：将反编译后的文件输出到指定目录。
+
+---
+
+### 场景 11：高级 glTF 导出（带动画过滤）
+
+```json
+export_gltf_advanced({
+  "model_path": "G:\\SteamLibrary\\steamapps\\common\\Counter-Strike Global Offensive\\game\\csgo\\pak01_dir.vpk::characters/models/ctm_diver/ctm_diver_varianta.vmdl_c",
+  "output_path": "C:\\temp\\model_advanced.glb",
+  "animation_list": "idle,walk",
+  "mesh_list": "body,hands",
+  "textures_adapt": true,
+  "export_extras": true
+})
+```
+
+**返回内容**：导出成功信息，可精细控制动画、网格和纹理适配。
+
+---
+
 ## 各工具详细参数
 
 ### get_file_info
@@ -275,6 +309,20 @@ list_vpk_contents({
 
 ---
 
+### decompile_vpk
+
+批量反编译 VPK 中的所有资源到指定目录。
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `vpk_path` | string | ✅ | VPK 文件路径 |
+| `output_path` | string | ✅ | 反编译文件的输出目录 |
+| `extension_filter` | string | ❌ | 扩展名过滤器，如 `"vmdl_c,vmat_c"` |
+| `path_filter` | string | ❌ | 路径前缀过滤器，如 `"characters/models/"` |
+| `recursive` | boolean | ❌ | 是否递归处理嵌套 VPK，默认 false |
+
+---
+
 ### extract_texture
 
 提取纹理为图片文件。
@@ -283,6 +331,7 @@ list_vpk_contents({
 |------|------|------|------|
 | `texture_path` | string | ✅ | 纹理路径（支持 VPK 内路径） |
 | `output_path` | string | ✅ | 输出图片路径（.png 或 .tga） |
+| `decode_flags` | string | ❌ | 解码标志：`"none"`、`"auto"`、`"focused"`，默认 `"auto"` |
 
 ---
 
@@ -296,6 +345,24 @@ list_vpk_contents({
 | `output_path` | string | ✅ | 输出文件路径（.glb 或 .gltf） |
 | `include_animations` | boolean | ❌ | 是否包含动画，默认 true |
 | `include_materials` | boolean | ❌ | 是否包含材质，默认 true |
+
+---
+
+### export_gltf_advanced
+
+高级 glTF 导出，精细控制导出过程。
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `model_path` | string | ✅ | 模型路径或 VPK 内部路径 |
+| `output_path` | string | ✅ | 输出文件路径（.glb 或 .gltf） |
+| `vpk_path` | string | ❌ | 如果 model_path 是内部路径，需指定此 VPK 路径 |
+| `include_animations` | boolean | ❌ | 是否包含动画，默认 true |
+| `include_materials` | boolean | ❌ | 是否包含材质，默认 true |
+| `animation_list` | string | ❌ | 逗号分隔的要包含的动画名称列表 |
+| `mesh_list` | string | ❌ | 逗号分隔的要包含的网格名称列表 |
+| `textures_adapt` | boolean | ❌ | 是否执行 glTF 规范适配，默认 false |
+| `export_extras` | boolean | ❌ | 是否导出额外网格属性到 glTF extras，默认 false |
 
 ---
 
@@ -315,9 +382,11 @@ list_vpk_contents({
 
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| `input_path` | string | ✅ | 文件/文件夹/VPK 路径 |
-| `include_files` | boolean | ❌ | 是否打印示例文件名 |
-| `particles` | boolean | ❌ | 是否收集粒子特效统计 |
+| `input_path` | string | ✅ | 文件/文件夹/VPK 路径，或 `"steam"` 扫描所有 Steam 库 |
+| `include_files` | boolean | ❌ | 是否打印示例文件名，默认 false |
+| `unique_deps` | boolean | ❌ | 是否收集所有唯一依赖项，默认 false |
+| `particles` | boolean | ❌ | 是否收集粒子特效统计，默认 false |
+| `vbib` | boolean | ❌ | 是否收集顶点属性统计，默认 false |
 
 ---
 
@@ -374,3 +443,7 @@ A: 这是 CLI 的行为，会在 output_path 下创建与 VPK 内部路径对应
 ### Q: 如何查找特定类型的资源？
 
 A: 使用 `list_vpk_contents` 工具，结合 `extension_filter` 和 `path_filter` 参数进行过滤。
+
+### Q: 如何扫描所有 Steam 库的资源？
+
+A: 使用 `collect_stats`，设置 `input_path: "steam"` 即可扫描所有 Steam 库目录。
