@@ -121,12 +121,22 @@ class VRFServer:
         Inspect a Source 2 resource file.
 
         Args:
-            file_path: Path to the resource file
+            file_path: Path to the resource file. Can be a filesystem path
+                      OR format 'vpk_path::internal_path' for files inside a VPK.
 
         Returns:
             Dictionary containing file information
         """
-        returncode, stdout, stderr = self.run_cli(["-i", file_path])
+        # Check if this is a VPK internal file request
+        if "::" in file_path:
+            parts = file_path.split("::", 1)
+            vpk_path = parts[0]
+            vpk_file_path = parts[1]
+            args = ["-i", vpk_path, "--vpk_filepath", vpk_file_path, "-a"]
+        else:
+            args = ["-i", file_path]
+
+        returncode, stdout, stderr = self.run_cli(args)
 
         if returncode != 0:
             return {
@@ -172,10 +182,15 @@ class VRFServer:
             }
 
         # Parse the output into a structured format
+        # VPK list output is: "path/to/file.ext CRC:xxxxxxxxxx size:xxxxx"
         files = []
         for line in stdout.strip().split('\n'):
-            if line and not line.startswith(' '):
-                files.append(line)
+            line = line.strip()
+            if line:
+                # Extract just the filepath (before " CRC:")
+                parts = line.split(' CRC:')
+                if parts:
+                    files.append(parts[0])
 
         return {
             "success": True,
@@ -336,6 +351,184 @@ class VRFServer:
             size /= 1024
         return f"{size:.2f} TB"
 
+    def verify_vpk(self, vpk_path: str) -> dict[str, Any]:
+        """
+        Verify the integrity and signatures of a VPK archive.
+
+        Args:
+            vpk_path: Path to the VPK file
+
+        Returns:
+            Dictionary containing verification result
+        """
+        args = ["-i", vpk_path, "--vpk_verify"]
+        returncode, stdout, stderr = self.run_cli(args, timeout=120)
+
+        if returncode != 0:
+            return {
+                "success": False,
+                "error": stderr or "Failed to verify VPK",
+                "vpk": vpk_path
+            }
+
+        return {
+            "success": True,
+            "vpk": vpk_path,
+            "output": stdout
+        }
+
+    def collect_stats(self, input_path: str,
+                      include_files: bool = False,
+                      unique_deps: bool = False,
+                      particles: bool = False,
+                      vbib: bool = False) -> dict[str, Any]:
+        """
+        Collect statistics about resource files.
+
+        Args:
+            input_path: Path to file/folder/VPK or "steam" for all steam libraries
+            include_files: Whether to print example file names
+            unique_deps: Whether to collect unique dependencies
+            particles: Whether to collect particle stats
+            vbib: Whether to collect vertex attribute stats
+
+        Returns:
+            Dictionary containing statistics
+        """
+        args = ["-i", input_path, "--stats"]
+
+        if include_files:
+            args.append("--stats_print_files")
+        if unique_deps:
+            args.append("--stats_unique_deps")
+        if particles:
+            args.append("--stats_particles")
+        if vbib:
+            args.append("--stats_vbib")
+
+        returncode, stdout, stderr = self.run_cli(args, timeout=300)
+
+        if returncode != 0:
+            return {
+                "success": False,
+                "error": stderr or "Failed to collect stats",
+                "input": input_path
+            }
+
+        return {
+            "success": True,
+            "input": input_path,
+            "output": stdout
+        }
+
+    def decompile_vpk(self, vpk_path: str, output_path: str,
+                      extension_filter: Optional[str] = None,
+                      path_filter: Optional[str] = None,
+                      recursive: bool = False) -> dict[str, Any]:
+        """
+        Decompile all resources in a VPK archive.
+
+        Args:
+            vpk_path: Path to the VPK file
+            output_path: Output directory for decompiled files
+            extension_filter: Optional extension filter
+            path_filter: Optional path filter
+            recursive: Whether to recurse into nested VPKs
+
+        Returns:
+            Dictionary containing decompilation result
+        """
+        args = ["-i", vpk_path, "-o", output_path, "-d"]
+
+        if extension_filter:
+            args.extend(["--vpk_extensions", extension_filter])
+        if path_filter:
+            args.extend(["--vpk_filepath", path_filter])
+        if recursive:
+            args.append("--recursive_vpk")
+
+        returncode, stdout, stderr = self.run_cli(args, timeout=600)
+
+        if returncode != 0:
+            return {
+                "success": False,
+                "error": stderr or "Failed to decompile VPK",
+                "vpk": vpk_path
+            }
+
+        return {
+            "success": True,
+            "vpk": vpk_path,
+            "output_path": output_path,
+            "output": stdout
+        }
+
+    def export_gltf_advanced(self, model_path: str, output_path: str,
+                             include_animations: bool = True,
+                             include_materials: bool = True,
+                             animation_list: Optional[str] = None,
+                             mesh_list: Optional[str] = None,
+                             textures_adapt: bool = False,
+                             export_extras: bool = False,
+                             vpk_internal: bool = False,
+                             vpk_path: Optional[str] = None) -> dict[str, Any]:
+        """
+        Export a 3D model to glTF format with advanced options.
+
+        Args:
+            model_path: Path to the model file (.vmdl)
+            output_path: Path for the output glTF/glb file
+            include_animations: Whether to include animations
+            include_materials: Whether to include materials
+            animation_list: Comma-separated animation names to include
+            mesh_list: Comma-separated mesh names to include
+            textures_adapt: Whether to perform glTF spec adaptations
+            export_extras: Whether to export additional mesh properties
+            vpk_internal: Whether this is a VPK internal file
+            vpk_path: If vpk_internal is True, the VPK path
+
+        Returns:
+            Dictionary containing export result
+        """
+        if vpk_internal and vpk_path:
+            args = ["-i", vpk_path, "--vpk_filepath", model_path]
+        else:
+            args = ["-i", model_path]
+
+        args.extend([
+            "--gltf_export_format", "glb",
+            "-o", output_path
+        ])
+
+        if include_animations:
+            args.append("--gltf_export_animations")
+        if include_materials:
+            args.append("--gltf_export_materials")
+        if animation_list:
+            args.extend(["--gltf_animation_list", animation_list])
+        if mesh_list:
+            args.extend(["--gltf_mesh_list", mesh_list])
+        if textures_adapt:
+            args.append("--gltf_textures_adapt")
+        if export_extras:
+            args.append("--gltf_export_extras")
+
+        returncode, stdout, stderr = self.run_cli(args, timeout=180)
+
+        if returncode != 0:
+            return {
+                "success": False,
+                "error": stderr or "Failed to export glTF",
+                "input": model_path
+            }
+
+        return {
+            "success": True,
+            "input": model_path,
+            "output": output_path,
+            "format": "glb"
+        }
+
 
 class MCPServer:
     """MCP Server implementation for ValveResourceFormat."""
@@ -349,13 +542,13 @@ class MCPServer:
         return [
             {
                 "name": "inspect_file",
-                "description": "Inspect a Source 2 resource file and return detailed information about its structure, blocks, and data.",
+                "description": "Inspect a Source 2 resource file and return detailed information about its structure, blocks, and data. Use format 'vpk_path::internal_path' to inspect files inside a VPK archive.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
                         "file_path": {
                             "type": "string",
-                            "description": "Path to the resource file to inspect"
+                            "description": "Path to the resource file. Can be a filesystem path OR format 'vpk_path::internal_path' for files inside a VPK (e.g., 'C:\\game\\pak01_dir.vpk::models/player.mdl')"
                         }
                     },
                     "required": ["file_path"]
@@ -488,6 +681,135 @@ class MCPServer:
                     },
                     "required": ["directory"]
                 }
+            },
+            {
+                "name": "verify_vpk",
+                "description": "Verify the integrity and signatures of a VPK archive.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "vpk_path": {
+                            "type": "string",
+                            "description": "Path to the VPK file"
+                        }
+                    },
+                    "required": ["vpk_path"]
+                }
+            },
+            {
+                "name": "decompile_vpk",
+                "description": "Decompile all resources in a VPK archive to a specified output directory.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "vpk_path": {
+                            "type": "string",
+                            "description": "Path to the VPK file"
+                        },
+                        "output_path": {
+                            "type": "string",
+                            "description": "Output directory for decompiled files"
+                        },
+                        "extension_filter": {
+                            "type": "string",
+                            "description": "Comma-separated list of extensions to filter"
+                        },
+                        "path_filter": {
+                            "type": "string",
+                            "description": "Path prefix filter"
+                        },
+                        "recursive": {
+                            "type": "boolean",
+                            "description": "Whether to recurse into nested VPKs",
+                            "default": False
+                        }
+                    },
+                    "required": ["vpk_path", "output_path"]
+                }
+            },
+            {
+                "name": "collect_stats",
+                "description": "Collect statistics about resource files. Use 'steam' as input to scan all Steam libraries.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "input_path": {
+                            "type": "string",
+                            "description": "Path to file/folder/VPK, or 'steam' for all Steam libraries"
+                        },
+                        "include_files": {
+                            "type": "boolean",
+                            "description": "Print example file names for each stat",
+                            "default": False
+                        },
+                        "unique_deps": {
+                            "type": "boolean",
+                            "description": "Collect all unique dependencies",
+                            "default": False
+                        },
+                        "particles": {
+                            "type": "boolean",
+                            "description": "Collect particle operators, renderers, emitters, initializers",
+                            "default": False
+                        },
+                        "vbib": {
+                            "type": "boolean",
+                            "description": "Collect vertex attribute stats",
+                            "default": False
+                        }
+                    },
+                    "required": ["input_path"]
+                }
+            },
+            {
+                "name": "export_gltf_advanced",
+                "description": "Export a 3D model to glTF format with advanced options including animation/mesh filtering and VPK support.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "model_path": {
+                            "type": "string",
+                            "description": "Path to the model file (.vmdl) or internal path for VPK"
+                        },
+                        "output_path": {
+                            "type": "string",
+                            "description": "Path for the output glTF/glb file"
+                        },
+                        "vpk_path": {
+                            "type": "string",
+                            "description": "VPK path if model_path is internal path"
+                        },
+                        "include_animations": {
+                            "type": "boolean",
+                            "description": "Whether to include animations",
+                            "default": True
+                        },
+                        "include_materials": {
+                            "type": "boolean",
+                            "description": "Whether to include materials",
+                            "default": True
+                        },
+                        "animation_list": {
+                            "type": "string",
+                            "description": "Comma-separated animation names to include (default all)"
+                        },
+                        "mesh_list": {
+                            "type": "string",
+                            "description": "Comma-separated mesh names to include (default all)"
+                        },
+                        "textures_adapt": {
+                            "type": "boolean",
+                            "description": "Perform glTF spec adaptations on textures",
+                            "default": False
+                        },
+                        "export_extras": {
+                            "type": "boolean",
+                            "description": "Export additional mesh properties into glTF extras",
+                            "default": False
+                        }
+                    },
+                    "required": ["model_path", "output_path"]
+                }
             }
         ]
 
@@ -519,8 +841,9 @@ class MCPServer:
                 "result": {"tools": self.tools}
             }
         elif method == "tools/call":
-            tool_name = request.get("name")
-            tool_args = request.get("arguments", {})
+            params = request.get("params", {})
+            tool_name = params.get("name")
+            tool_args = params.get("arguments", {})
 
             result = await self._call_tool(tool_name, tool_args)
 
@@ -600,6 +923,47 @@ class MCPServer:
                 args.get("recursive", False)
             )
 
+        elif tool_name == "verify_vpk":
+            return await loop.run_in_executor(None, self.vrf.verify_vpk, args["vpk_path"])
+
+        elif tool_name == "decompile_vpk":
+            return await loop.run_in_executor(
+                None,
+                self.vrf.decompile_vpk,
+                args["vpk_path"],
+                args["output_path"],
+                args.get("extension_filter"),
+                args.get("path_filter"),
+                args.get("recursive", False)
+            )
+
+        elif tool_name == "collect_stats":
+            return await loop.run_in_executor(
+                None,
+                self.vrf.collect_stats,
+                args["input_path"],
+                args.get("include_files", False),
+                args.get("unique_deps", False),
+                args.get("particles", False),
+                args.get("vbib", False)
+            )
+
+        elif tool_name == "export_gltf_advanced":
+            return await loop.run_in_executor(
+                None,
+                self.vrf.export_gltf_advanced,
+                args["model_path"],
+                args["output_path"],
+                args.get("include_animations", True),
+                args.get("include_materials", True),
+                args.get("animation_list"),
+                args.get("mesh_list"),
+                args.get("textures_adapt", False),
+                args.get("export_extras", False),
+                args.get("vpk_path") is not None,
+                args.get("vpk_path")
+            )
+
         else:
             return {"success": False, "error": f"Unknown tool: {tool_name}"}
 
@@ -630,12 +994,17 @@ class MCPServer:
         pattern = "**/*" if recursive else "*"
 
         for ext in extensions:
-            files.extend(path.glob(f"{pattern}{ext}"))
+            for f in path.glob(f"{pattern}{ext}"):
+                if f.is_file():
+                    files.append(f)
 
-        # Also look for compiled versions
-        compiled_extensions = [f"{ext}_c" for ext in extensions]
+        # Also look for compiled versions (e.g., .vmdl_c)
+        # Strip any existing _c suffix before adding to avoid .vmdl_c_c
+        compiled_extensions = [f".{ext.strip('.').rstrip('_c')}_c" for ext in extensions]
         for ext in compiled_extensions:
-            files.extend(path.glob(f"{pattern}{ext}"))
+            for f in path.glob(f"{pattern}{ext}"):
+                if f.is_file():
+                    files.append(f)
 
         # Get unique files and create list
         unique_files = sorted(set(f.relative_to(path) for f in files))

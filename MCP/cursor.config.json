@@ -2,9 +2,9 @@
   "mcpServers": {
     "vrf": {
       "command": "python",
-      "args": ["${workspace}/MCP/mcp_server.py"],
+      "args": ["C:\\Users\\Administrator\\Documents\\GitHub\\ValveResourceFormat-MCP\\MCP\\mcp_server.py"],
       "env": {
-        "VRF_CLI_PATH": "${workspace}/CLI/bin/Release/Source2Viewer-CLI.exe"
+        "VRF_CLI_PATH": "C:\\Users\\Administrator\\Documents\\GitHub\\ValveResourceFormat-MCP\\cli-windows-x64\\Source2Viewer-CLI.exe"
       }
     }
   }
