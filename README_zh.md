@@ -20,7 +20,7 @@
 
 **Cursor 用户** → 编辑 `C:\Users\Administrator\.cursor\mcp.json`
 
-**Claude Code 用户** → 编辑 `C:\Users\Administrator\.claude\mcp.json`
+**Claude Code 用户** → 编辑 `C:\Users\Administrator\.mcp.json`
 
 添加或追加以下配置（将路径改为你的实际路径）：
 

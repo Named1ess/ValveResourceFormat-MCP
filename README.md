@@ -20,7 +20,7 @@ Edit the corresponding config file based on your AI tool:
 
 **Cursor users** → Edit `C:\Users\Administrator\.cursor\mcp.json`
 
-**Claude Code users** → Edit `C:\Users\Administrator\.claude\mcp.json`
+**Claude Code users** → Edit `C:\Users\Administrator\.mcp.json`
 
 Add or append the following configuration (update paths to match your setup):
 
