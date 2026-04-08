@@ -1,122 +1,17 @@
 {
   "name": "ValveResourceFormat",
-  "version": "1.0.0",
-  "description": "MCP server for interacting with Valve Source 2 resource formats. Requires VRF_CLI_PATH environment variable pointing to Source2Viewer-CLI.exe.",
+  "version": "1.1.0",
+  "description": "MCP 服务器，用于与 Valve Source 2 资源格式交互。需要设置 VRF_CLI_PATH 环境变量指向 Source2Viewer-CLI.exe。",
   "tools": [
     {
-      "name": "inspect_file",
-      "description": "Inspect a Source 2 resource file and return detailed information about its structure, blocks, and data. Use format 'vpk_path::internal_path' to inspect files inside a VPK archive.",
-      "inputSchema": {
-        "type": "object",
-        "properties": {
-          "file_path": {
-            "type": "string",
-            "description": "Path to the resource file. Can be a filesystem path OR format 'vpk_path::internal_path' for files inside a VPK (e.g., 'C:\\game\\pak01_dir.vpk::models/player.mdl')"
-          }
-        },
-        "required": ["file_path"]
-      }
-    },
-    {
-      "name": "list_vpk_contents",
-      "description": "List all files in a VPK (Valve Package) archive, with optional filtering by extension or path.",
-      "inputSchema": {
-        "type": "object",
-        "properties": {
-          "vpk_path": {
-            "type": "string",
-            "description": "Path to the VPK file"
-          },
-          "extension_filter": {
-            "type": "string",
-            "description": "Comma-separated list of extensions to filter (e.g., 'vmdl,vmat')"
-          },
-          "path_filter": {
-            "type": "string",
-            "description": "Path prefix to filter (e.g., 'models/')"
-          }
-        },
-        "required": ["vpk_path"]
-      }
-    },
-    {
-      "name": "decompile_resource",
-      "description": "Decompile a Source 2 resource file to its raw, human-readable format.",
-      "inputSchema": {
-        "type": "object",
-        "properties": {
-          "input_path": {
-            "type": "string",
-            "description": "Path to the resource file to decompile"
-          },
-          "output_path": {
-            "type": "string",
-            "description": "Optional output path for the decompiled file"
-          }
-        },
-        "required": ["input_path"]
-      }
-    },
-    {
-      "name": "export_gltf",
-      "description": "Export a 3D model (.vmdl) to glTF/glb format for viewing in other tools.",
-      "inputSchema": {
-        "type": "object",
-        "properties": {
-          "model_path": {
-            "type": "string",
-            "description": "Path to the model file (.vmdl)"
-          },
-          "output_path": {
-            "type": "string",
-            "description": "Path for the output glTF/glb file"
-          },
-          "include_animations": {
-            "type": "boolean",
-            "description": "Whether to include animations in the export",
-            "default": true
-          },
-          "include_materials": {
-            "type": "boolean",
-            "description": "Whether to include materials in the export",
-            "default": true
-          }
-        },
-        "required": ["model_path", "output_path"]
-      }
-    },
-    {
-      "name": "extract_texture",
-      "description": "Extract a texture (.vtex) to an image file (PNG/TGA).",
-      "inputSchema": {
-        "type": "object",
-        "properties": {
-          "texture_path": {
-            "type": "string",
-            "description": "Path to the texture file (.vtex)"
-          },
-          "output_path": {
-            "type": "string",
-            "description": "Path for the output image file"
-          },
-          "decode_flags": {
-            "type": "string",
-            "description": "Decode flags: 'none', 'auto', or 'focused'",
-            "default": "auto"
-          }
-        },
-        "required": ["texture_path", "output_path"]
-      }
-    },
-    {
       "name": "get_file_info",
-      "description": "Get basic information about a file (size, type, extension).",
+      "description": "获取文件的基本信息（大小、类型、扩展名）。支持本地文件和 VPK 内部文件。",
       "inputSchema": {
         "type": "object",
         "properties": {
           "file_path": {
             "type": "string",
-            "description": "Path to the file"
+            "description": "文件路径"
           }
         },
         "required": ["file_path"]
@@ -124,21 +19,21 @@
     },
     {
       "name": "list_directory_resources",
-      "description": "List all Source 2 resource files in a directory, with optional filtering.",
+      "description": "列出目录中的 Source 2 资源文件，支持按扩展名过滤和递归扫描。",
       "inputSchema": {
         "type": "object",
         "properties": {
           "directory": {
             "type": "string",
-            "description": "Path to the directory to scan"
+            "description": "要扫描的目录路径"
           },
           "extension_filter": {
             "type": "string",
-            "description": "Comma-separated list of extensions to include"
+            "description": "逗号分隔的扩展名列表（如 'vpk' 或 'vmdl,vmat'）"
           },
           "recursive": {
             "type": "boolean",
-            "description": "Whether to scan subdirectories recursively",
+            "description": "是否递归扫描子目录",
             "default": false
           }
         },
@@ -146,14 +41,164 @@
       }
     },
     {
-      "name": "verify_vpk",
-      "description": "Verify the integrity and signatures of a VPK archive.",
+      "name": "list_vpk_contents",
+      "description": "列出 VPK 归档中的所有文件，支持按扩展名或路径前缀过滤。",
       "inputSchema": {
         "type": "object",
         "properties": {
           "vpk_path": {
             "type": "string",
-            "description": "Path to the VPK file"
+            "description": "VPK 文件路径"
+          },
+          "extension_filter": {
+            "type": "string",
+            "description": "逗号分隔的扩展名列表（如 'vmdl_c,vmat_c'）"
+          },
+          "path_filter": {
+            "type": "string",
+            "description": "路径前缀过滤（如 'characters/models/'）"
+          }
+        },
+        "required": ["vpk_path"]
+      }
+    },
+    {
+      "name": "inspect_file",
+      "description": "检查 Source 2 资源文件的结构、块和数据。支持 VPK 内部文件。",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "file_path": {
+            "type": "string",
+            "description": "资源文件路径，支持 'vpk_path::internal_path' 格式"
+          }
+        },
+        "required": ["file_path"]
+      }
+    },
+    {
+      "name": "decompile_resource",
+      "description": "将 Source 2 资源文件反编译为可读的原始格式。",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "input_path": {
+            "type": "string",
+            "description": "要反编译的资源文件路径"
+          },
+          "output_path": {
+            "type": "string",
+            "description": "可选的输出文件路径"
+          }
+        },
+        "required": ["input_path"]
+      }
+    },
+    {
+      "name": "extract_texture",
+      "description": "将纹理（.vtex）提取为 PNG 或 TGA 图片格式。",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "texture_path": {
+            "type": "string",
+            "description": "纹理文件路径（.vtex）"
+          },
+          "output_path": {
+            "type": "string",
+            "description": "输出图片路径（.png 或 .tga）"
+          }
+        },
+        "required": ["texture_path", "output_path"]
+      }
+    },
+    {
+      "name": "export_gltf",
+      "description": "将 3D 模型（.vmdl）导出为 glTF/glb 格式以便在其他工具（Blender等）中查看。",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "model_path": {
+            "type": "string",
+            "description": "模型文件路径（.vmdl），支持 VPK 内部路径"
+          },
+          "output_path": {
+            "type": "string",
+            "description": "输出 glTF/glb 文件路径"
+          },
+          "include_animations": {
+            "type": "boolean",
+            "description": "是否包含动画",
+            "default": true
+          },
+          "include_materials": {
+            "type": "boolean",
+            "description": "是否包含材质",
+            "default": true
+          }
+        },
+        "required": ["model_path", "output_path"]
+      }
+    },
+    {
+      "name": "export_gltf_advanced",
+      "description": "高级 glTF 导出，支持动画/网格过滤、VPK 路径指定和 glTF 规范适配。",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "model_path": {
+            "type": "string",
+            "description": "模型文件路径或 VPK 内部路径"
+          },
+          "output_path": {
+            "type": "string",
+            "description": "输出 glTF/glb 文件路径"
+          },
+          "vpk_path": {
+            "type": "string",
+            "description": "如果 model_path 是内部路径，需要指定此 VPK 路径"
+          },
+          "include_animations": {
+            "type": "boolean",
+            "description": "是否包含动画",
+            "default": true
+          },
+          "include_materials": {
+            "type": "boolean",
+            "description": "是否包含材质",
+            "default": true
+          },
+          "animation_list": {
+            "type": "string",
+            "description": "逗号分隔的要包含的动画名称列表"
+          },
+          "mesh_list": {
+            "type": "string",
+            "description": "逗号分隔的要包含的网格名称列表"
+          },
+          "textures_adapt": {
+            "type": "boolean",
+            "description": "是否执行 glTF 规范适配",
+            "default": false
+          },
+          "export_extras": {
+            "type": "boolean",
+            "description": "是否导出额外网格属性到 glTF extras",
+            "default": false
+          }
+        },
+        "required": ["model_path", "output_path"]
+      }
+    },
+    {
+      "name": "verify_vpk",
+      "description": "验证 VPK 归档的完整性和签名，检查文件是否损坏。",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "vpk_path": {
+            "type": "string",
+            "description": "VPK 文件路径"
           }
         },
         "required": ["vpk_path"]
@@ -161,29 +206,29 @@
     },
     {
       "name": "decompile_vpk",
-      "description": "Decompile all resources in a VPK archive to a specified output directory.",
+      "description": "批量将 VPK 归档中的所有资源反编译到指定输出目录。",
       "inputSchema": {
         "type": "object",
         "properties": {
           "vpk_path": {
             "type": "string",
-            "description": "Path to the VPK file"
+            "description": "VPK 文件路径"
           },
           "output_path": {
             "type": "string",
-            "description": "Output directory for decompiled files"
+            "description": "反编译文件的输出目录"
           },
           "extension_filter": {
             "type": "string",
-            "description": "Comma-separated list of extensions to filter"
+            "description": "逗号分隔的扩展名过滤器"
           },
           "path_filter": {
             "type": "string",
-            "description": "Path prefix filter"
+            "description": "路径前缀过滤器"
           },
           "recursive": {
             "type": "boolean",
-            "description": "Whether to recurse into nested VPKs",
+            "description": "是否递归处理嵌套 VPK",
             "default": false
           }
         },
@@ -192,86 +237,26 @@
     },
     {
       "name": "collect_stats",
-      "description": "Collect statistics about resource files. Use 'steam' as input to scan all Steam libraries.",
+      "description": "收集资源文件的统计信息，包括各类资源的数量和粒子特效详情。",
       "inputSchema": {
         "type": "object",
         "properties": {
           "input_path": {
             "type": "string",
-            "description": "Path to file/folder/VPK, or 'steam' for all Steam libraries"
+            "description": "文件/文件夹/VPK 路径"
           },
           "include_files": {
             "type": "boolean",
-            "description": "Print example file names for each stat",
-            "default": false
-          },
-          "unique_deps": {
-            "type": "boolean",
-            "description": "Collect all unique dependencies",
+            "description": "是否打印示例文件名",
             "default": false
           },
           "particles": {
             "type": "boolean",
-            "description": "Collect particle operators, renderers, emitters, initializers",
-            "default": false
-          },
-          "vbib": {
-            "type": "boolean",
-            "description": "Collect vertex attribute stats",
+            "description": "是否收集粒子特效统计",
             "default": false
           }
         },
         "required": ["input_path"]
-      }
-    },
-    {
-      "name": "export_gltf_advanced",
-      "description": "Export a 3D model to glTF format with advanced options including animation/mesh filtering and VPK support.",
-      "inputSchema": {
-        "type": "object",
-        "properties": {
-          "model_path": {
-            "type": "string",
-            "description": "Path to the model file (.vmdl) or internal path for VPK"
-          },
-          "output_path": {
-            "type": "string",
-            "description": "Path for the output glTF/glb file"
-          },
-          "vpk_path": {
-            "type": "string",
-            "description": "VPK path if model_path is internal path"
-          },
-          "include_animations": {
-            "type": "boolean",
-            "description": "Whether to include animations",
-            "default": true
-          },
-          "include_materials": {
-            "type": "boolean",
-            "description": "Whether to include materials",
-            "default": true
-          },
-          "animation_list": {
-            "type": "string",
-            "description": "Comma-separated animation names to include (default all)"
-          },
-          "mesh_list": {
-            "type": "string",
-            "description": "Comma-separated mesh names to include (default all)"
-          },
-          "textures_adapt": {
-            "type": "boolean",
-            "description": "Perform glTF spec adaptations on textures",
-            "default": false
-          },
-          "export_extras": {
-            "type": "boolean",
-            "description": "Export additional mesh properties into glTF extras",
-            "default": false
-          }
-        },
-        "required": ["model_path", "output_path"]
       }
     }
   ]

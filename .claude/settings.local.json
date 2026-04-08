@@ -10,7 +10,10 @@
       "Bash(&)",
       "mcp__vrf__list_directory_resources",
       "Bash(echo VRF_CLI_PATH: $VRF_CLI_PATH:*)",
-      "mcp__vrf__list_vpk_contents"
+      "mcp__vrf__list_vpk_contents",
+      "mcp__vrf__inspect_file",
+      "mcp__vrf__collect_stats",
+      "mcp__vrf__decompile_vpk"
     ]
   }
 }

@@ -62,7 +62,7 @@ You'll see multiple VPK files:
 - `pak01_000.vpk`, `pak01_001.vpk`, ... → Distributed resource packages
 - **`pak01_dir.vpk`** → Index package containing directory information for all resources
 
-⚠️ **Important**: Most operations should use `pak01_dir.vpk`, not `pak01_000.vpk`.
+> **Important**: Most operations should use `pak01_dir.vpk`, not `pak01_000.vpk`.
 
 ### Path Formats
 
@@ -78,7 +78,7 @@ G:\SteamLibrary\steamapps\common\Counter-Strike Global Offensive\game\csgo\model
 G:\SteamLibrary\steamapps\common\Counter-Strike Global Offensive\game\csgo\pak01_dir.vpk::models/player/t_model.vmdl_c
 ```
 
-⚠️ Use `::` to separate the VPK path from the internal path.
+> Use `::` to separate the VPK path from the internal path.
 
 ---
 
@@ -91,10 +91,8 @@ G:\SteamLibrary\steamapps\common\Counter-Strike Global Offensive\game\csgo\pak01
 | `list_vpk_contents` | List files inside a VPK | Explore VPK package contents |
 | `inspect_file` | Inspect resource file structure | Analyze model, material, texture details |
 | `decompile_resource` | Decompile a single resource | Extract resource to readable format |
-| `decompile_vpk` | Batch decompile VPK | Batch export resources from VPK |
 | `extract_texture` | Extract texture as image | Get game textures/maps |
 | `export_gltf` | Export 3D model to glTF | View model in other software (Blender) |
-| `export_gltf_advanced` | Advanced model export | Fine control over exported animations, meshes |
 | `verify_vpk` | Verify VPK integrity | Check if VPK is corrupted |
 | `collect_stats` | Collect resource statistics | Count resource types in VPK |
 
@@ -102,7 +100,33 @@ G:\SteamLibrary\steamapps\common\Counter-Strike Global Offensive\game\csgo\pak01
 
 ## Usage Examples
 
-### Scenario 1: Understand What a Model Looks Like
+### Scenario 1: Get File Basic Information
+
+```json
+get_file_info({
+  "file_path": "G:\\SteamLibrary\\steamapps\\common\\Counter-Strike Global Offensive\\game\\csgo\\pak01_dir.vpk"
+})
+```
+
+**Returns**: File name, extension, size, full path.
+
+---
+
+### Scenario 2: List VPK Files in a Directory
+
+```json
+list_directory_resources({
+  "directory": "G:\\SteamLibrary\\steamapps\\common\\Counter-Strike Global Offensive\\game\\csgo",
+  "extension_filter": "vpk",
+  "recursive": false
+})
+```
+
+**Returns**: List of all .vpk files in the directory (425 files including pak01_xxx.vpk and shaders_xxx.vpk).
+
+---
+
+### Scenario 3: Understand a Model's Structure
 
 ```json
 inspect_file({
@@ -114,7 +138,7 @@ inspect_file({
 
 ---
 
-### Scenario 2: Find All Terrorist Models
+### Scenario 4: Find All Terrorist Models
 
 ```json
 list_vpk_contents({
@@ -128,48 +152,16 @@ list_vpk_contents({
 
 ---
 
-### Scenario 3: Export a Game Model to Blender
-
-```json
-export_gltf({
-  "model_path": "G:\\SteamLibrary\\steamapps\\common\\Counter-Strike Global Offensive\\game\\csgo\\pak01_dir.vpk::characters/models/ctm_diver/ctm_diver_varianta.vmdl_c",
-  "output_path": "C:\\temp\\csgo_model.glb",
-  "include_animations": true,
-  "include_materials": true
-})
-```
-
-**Returns**: Export success info. Note: actual file will be saved to subdirectory `C:\temp\csgo_model.glb\characters\models\ctm_diver\`.
-
----
-
-### Scenario 4: Extract Character Skin Texture
+### Scenario 5: Extract Character Skin Texture
 
 ```json
 extract_texture({
   "texture_path": "G:\\SteamLibrary\\steamapps\\common\\Counter-Strike Global Offensive\\game\\csgo\\pak01_dir.vpk::characters/models/ctm_diver/ctm_diver_varianta/body_vmorf.vtex_c",
-  "output_path": "C:\\temp\\texture.png",
-  "decode_flags": "auto"
+  "output_path": "C:\\temp\\texture.png"
 })
 ```
 
 **Returns**: PNG image file path of the texture.
-
----
-
-### Scenario 5: Batch Decompile All Materials in a Directory
-
-```json
-decompile_vpk({
-  "vpk_path": "G:\\SteamLibrary\\steamapps\\common\\Counter-Strike Global Offensive\\game\\csgo\\pak01_dir.vpk",
-  "output_path": "C:\\temp\\decompiled_materials",
-  "extension_filter": "vmat_c",
-  "path_filter": "materials/",
-  "recursive": false
-})
-```
-
-**Returns**: Batch decompile statistics including how many files were processed.
 
 ---
 
@@ -199,29 +191,54 @@ collect_stats({
 
 ---
 
-### Scenario 8: List All .mdl Files in a Local Directory
+### Scenario 8: Export a Game Model to Blender
 
 ```json
-list_directory_resources({
-  "directory": "G:\\SteamLibrary\\steamapps\\common\\Counter-Strike Global Offensive\\game\\csgo\\models",
-  "extension_filter": "mdl,mdl_c",
-  "recursive": true
+export_gltf({
+  "model_path": "G:\\SteamLibrary\\steamapps\\common\\Counter-Strike Global Offensive\\game\\csgo\\pak01_dir.vpk::characters/models/ctm_diver/ctm_diver_varianta.vmdl_c",
+  "output_path": "C:\\temp\\csgo_model.glb",
+  "include_animations": true,
+  "include_materials": true
 })
 ```
 
-**Returns**: List of all model files in the local directory.
+**Returns**: Export success info. Note: actual file will be saved to subdirectory `C:\temp\csgo_model.glb\characters\models\ctm_diver\`.
+
+---
+
+### Scenario 9: List All Shader Files
+
+```json
+list_vpk_contents({
+  "vpk_path": "G:\\SteamLibrary\\steamapps\\common\\Counter-Strike Global Offensive\\game\\csgo\\shaders_pc_dir.vpk"
+})
+```
+
+**Returns**: 274 shader files including .vcs (compiled shader bytecode) and .ini (shader configuration).
 
 ---
 
 ## Tool Parameters Reference
 
-### inspect_file
+### get_file_info
 
-Inspect internal structure of a resource file.
+Get basic file information.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `file_path` | string | ✅ | File path (supports VPK internal paths) |
+| `file_path` | string | ✅ | File path |
+
+---
+
+### list_directory_resources
+
+List Source 2 resource files in a directory.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `directory` | string | ✅ | Directory path to scan |
+| `extension_filter` | string | ❌ | Extension filter, e.g., `"vpk"` or `"vmdl,vmat"` |
+| `recursive` | boolean | ❌ | Whether to scan subdirectories, default false |
 
 ---
 
@@ -237,6 +254,16 @@ List files in a VPK archive.
 
 ---
 
+### inspect_file
+
+Inspect internal structure of a resource file.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `file_path` | string | ✅ | File path (supports VPK internal paths) |
+
+---
+
 ### decompile_resource
 
 Decompile a single resource to readable format.
@@ -248,17 +275,14 @@ Decompile a single resource to readable format.
 
 ---
 
-### decompile_vpk
+### extract_texture
 
-Batch decompile resources from VPK.
+Extract texture as image file.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `vpk_path` | string | ✅ | VPK file path |
-| `output_path` | string | ✅ | Output directory |
-| `extension_filter` | string | ❌ | Extension filter |
-| `path_filter` | string | ❌ | Path prefix filter |
-| `recursive` | boolean | ❌ | Whether to recurse into nested VPKs, default false |
+| `texture_path` | string | ✅ | Texture path (supports VPK internal paths) |
+| `output_path` | string | ✅ | Output image path (.png or .tga) |
 
 ---
 
@@ -272,36 +296,6 @@ Export 3D model to glTF/glb format.
 | `output_path` | string | ✅ | Output file path (.glb or .gltf) |
 | `include_animations` | boolean | ❌ | Whether to include animations, default true |
 | `include_materials` | boolean | ❌ | Whether to include materials, default true |
-
----
-
-### export_gltf_advanced
-
-Advanced glTF export with fine-grained control.
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `model_path` | string | ✅ | Model path or VPK internal path |
-| `output_path` | string | ✅ | Output file path |
-| `vpk_path` | string | ❌ | Required if model_path is internal path |
-| `include_animations` | boolean | ❌ | Whether to include animations |
-| `include_materials` | boolean | ❌ | Whether to include materials |
-| `animation_list` | string | ❌ | Comma-separated animation names to include |
-| `mesh_list` | string | ❌ | Comma-separated mesh names to include |
-| `textures_adapt` | boolean | ❌ | Whether to perform glTF spec adaptations |
-| `export_extras` | boolean | ❌ | Whether to export extra mesh properties |
-
----
-
-### extract_texture
-
-Extract texture as image file.
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `texture_path` | string | ✅ | Texture path (supports VPK internal paths) |
-| `output_path` | string | ✅ | Output image path (.png or .tga) |
-| `decode_flags` | string | ❌ | Decode flags: `none`, `auto`, `focused`, default `auto` |
 
 ---
 
@@ -321,33 +315,9 @@ Collect resource statistics.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `input_path` | string | ✅ | File/folder/VPK path, or `"steam"` to scan all Steam libraries |
+| `input_path` | string | ✅ | File/folder/VPK path |
 | `include_files` | boolean | ❌ | Whether to print example file names |
-| `unique_deps` | boolean | ❌ | Whether to collect unique dependencies |
 | `particles` | boolean | ❌ | Whether to collect particle stats |
-| `vbib` | boolean | ❌ | Whether to collect vertex attribute stats |
-
----
-
-### list_directory_resources
-
-List Source 2 resource files in a directory.
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `directory` | string | ✅ | Directory path to scan |
-| `extension_filter` | string | ❌ | Extension filter, e.g., `"vmdl,vmat"` |
-| `recursive` | boolean | ❌ | Whether to scan subdirectories, default false |
-
----
-
-### get_file_info
-
-Get basic file information.
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `file_path` | string | ✅ | File path |
 
 ---
 
