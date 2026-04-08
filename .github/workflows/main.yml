@@ -36,32 +36,29 @@ jobs:
           dotnet publish vrf-source/ValveResourceFormat/ValveResourceFormat.csproj -c Release -r win-x64 --self-contained -o ./publish-cli
 
       # 5. 将编译产物同步到你的仓库
-      - name: Push to my repo
+      - name: Push to my repo root
         shell: pwsh
         run: |
-          # 1. 确保进入正确的目录
+          # 1. 切换到你的仓库目录
           cd $env:GITHUB_WORKSPACE/my-repo
           
-          # 2. 强制创建目录并【清空】旧文件，确保 Git 能感应到变化
-          if (Test-Path "bin/vrf") { Remove-Item -Path "bin/vrf/*" -Recurse -Force }
-          New-Item -ItemType Directory -Force -Path bin/vrf
+          # 2. 将编译好的文件直接拷贝到仓库根目录下的 vrf-release 文件夹
+          # 如果你想直接丢在根目录，就把 "vrf-release/" 改成 "./"
+          New-Item -ItemType Directory -Force -Path vrf-release
+          Copy-Item -Path "$env:GITHUB_WORKSPACE/publish-cli/*" -Destination "./" -Recurse -Force
           
-          # 3. 拷贝新文件 (注意路径使用绝对路径避免混乱)
-          Copy-Item -Path "$env:GITHUB_WORKSPACE/publish-cli/*" -Destination "bin/vrf/" -Recurse -Force
-          
-          # 4. 配置 Git
+          # 3. 配置 Git 信息
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # 5. 提交
+          # 4. 添加、提交并推送
           git add .
-          # 查看当前状态，确认 bin/vrf 下确实有文件
-          git status
           
+          # 只有在有变化时才提交，避免 Action 报错
           $status = git status --porcelain
           if ($null -ne $status) {
-              git commit -m "Update VRF binaries: $(Get-Date -Format 'yyyy-MM-dd HH:mm')"
+              git commit -m "Auto-compiled VRF binaries"
               git push
           } else {
-              Write-Host "Still no changes detected. Check if publish-cli is empty."
+              Write-Host "No changes to commit, files are already up to date."
           }
