@@ -37,27 +37,31 @@ jobs:
 
       # 5. 将编译产物同步到你的仓库
       - name: Push to my repo
-        shell: pwsh # 明确指定使用 PowerShell
+        shell: pwsh
         run: |
-          # 1. 进入你的仓库
-          cd my-repo
+          # 1. 确保进入正确的目录
+          cd $env:GITHUB_WORKSPACE/my-repo
           
-          # 2. 强制创建并拷贝文件（注意路径要对准你之前 -o 指定的目录）
+          # 2. 强制创建目录并【清空】旧文件，确保 Git 能感应到变化
+          if (Test-Path "bin/vrf") { Remove-Item -Path "bin/vrf/*" -Recurse -Force }
           New-Item -ItemType Directory -Force -Path bin/vrf
-          Copy-Item -Path "../publish-cli/*" -Destination "bin/vrf/" -Recurse -Force
           
-          # 3. 配置 Git
+          # 3. 拷贝新文件 (注意路径使用绝对路径避免混乱)
+          Copy-Item -Path "$env:GITHUB_WORKSPACE/publish-cli/*" -Destination "bin/vrf/" -Recurse -Force
+          
+          # 4. 配置 Git
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # 4. 提交更改
+          # 5. 提交
           git add .
+          # 查看当前状态，确认 bin/vrf 下确实有文件
+          git status
           
-          # 检查是否有文件变动，防止因为无变动导致的 commit 报错
           $status = git status --porcelain
           if ($null -ne $status) {
-              git commit -m "Routine update of VRF binaries"
+              git commit -m "Update VRF binaries: $(Get-Date -Format 'yyyy-MM-dd HH:mm')"
               git push
           } else {
-              Write-Host "No changes to commit."
+              Write-Host "Still no changes detected. Check if publish-cli is empty."
           }
