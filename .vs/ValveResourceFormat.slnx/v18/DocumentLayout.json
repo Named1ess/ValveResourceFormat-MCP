@@ -1,0 +1,37 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "C:\\Users\\Administrator\\Documents\\GitHub\\ValveResourceFormat-MCP\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{06A18784-0637-D443-2E01-0885CF7266DF}|CLI\\CLI.csproj|c:\\users\\administrator\\documents\\github\\valveresourceformat-mcp\\cli\\cli.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|",
+      "RelativeMoniker": "D:0:0:{06A18784-0637-D443-2E01-0885CF7266DF}|CLI\\CLI.csproj|solutionrelative:cli\\cli.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 0,
+          "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "CLI",
+              "DocumentMoniker": "C:\\Users\\Administrator\\Documents\\GitHub\\ValveResourceFormat-MCP\\CLI\\CLI.csproj",
+              "RelativeDocumentMoniker": "CLI\\CLI.csproj",
+              "ToolTip": "C:\\Users\\Administrator\\Documents\\GitHub\\ValveResourceFormat-MCP\\CLI\\CLI.csproj",
+              "RelativeToolTip": "CLI\\CLI.csproj",
+              "ViewState": "AgIAAAAAAAAAAAAAAADwvwAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000758|",
+              "WhenOpened": "2026-04-08T12:18:27.441Z",
+              "EditorCaption": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

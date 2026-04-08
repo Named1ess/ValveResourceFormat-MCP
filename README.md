@@ -1,155 +1,188 @@
-<h1 align="center"><img src="./Misc/Icons/source2viewer.png" width="64" align="center"> Source 2 Viewer</h1>
+# ValveResourceFormat MCP Server
 
-<p align="center">
-    <a href="https://github.com/ValveResourceFormat/ValveResourceFormat/actions"><img alt="GitHub Workflow Status" src="https://img.shields.io/github/actions/workflow/status/ValveResourceFormat/ValveResourceFormat/build.yml?logo=github&style=for-the-badge&branch=master"></a>
-    <a href="https://www.nuget.org/packages/ValveResourceFormat/"><img src="https://img.shields.io/nuget/dt/ValveResourceFormat.svg?logo=nuget&style=for-the-badge&label=Library"></a>
-    <a href="https://www.nuget.org/packages/ValveResourceFormat.Renderer/"><img src="https://img.shields.io/nuget/dt/ValveResourceFormat.Renderer.svg?logo=nuget&style=for-the-badge&label=Renderer"></a>
-    <a href="https://app.codecov.io/gh/ValveResourceFormat/ValveResourceFormat"><img src="https://img.shields.io/codecov/c/github/ValveResourceFormat/ValveResourceFormat/master?logo=codecov&logoColor=ffffff&style=for-the-badge"></a>
-</p>
+[中文版](./README_zh.md) | English
 
-*\* The library component of Source 2 Viewer is called ValveResourceFormat (VRF).*
+An MCP server that enables AI tools (like Cursor) to interact with Valve Source 2 resource formats.
 
-Valve's Source 2 resource file format parser, decompiler, and exporter.
-Source 2 files usually end with `_c`, for example `.vmdl_c`.
+## Quick Start
 
-This repository is split into four components:
-- **Command-line utility** - File data viewer, decompiler and a playground for testing new formats and features.
-- **GUI Viewer** - A vpk archive viewer and extractor. Also supports viewing resources such as sounds, textures, models, maps, and much more.
-- **Renderer** - OpenGL-based rendering engine for Source 2 game assets.
-- **Library** - Provides public API to parse resource files and some helpers.
+### 1. Download CLI
 
-⚒ [View the official website for downloads](https://valveresourceformat.github.io/).
-ℹ️ [View the library documentation here](https://s2v.app/ValveResourceFormat/api/ValveResourceFormat.html).
+Download the latest CLI from [ValveResourceFormat Releases](https://github.com/ValveResourceFormat/ValveResourceFormat/releases) (choose `Source2Viewer-CLI-win-x.x.zip`).
 
-## Join our Discord
+### 2. Configure Cursor
 
-[![Join our Discord](https://discord.com/api/guilds/1408482312060145725/embed.png?style=banner2)](https://discord.gg/s9QQ7Wg7r4)
+Edit `C:\Users\Administrator\.cursor\mcp.json` and add the following configuration (update paths to match your setup):
 
-## Eye catchy screenshots
-<table>
-	<tr>
-		<td><img src="https://valveresourceformat.github.io/static/screen_map.png"></td>
-		<td><img src="https://valveresourceformat.github.io/static/screen_texture.png"></td>
-	</tr>
-	<tr>
-		<td><img src="https://valveresourceformat.github.io/static/screen_package.png"></td>
-		<td><img src="https://valveresourceformat.github.io/static/screen_cli.png"></td>
-	</tr>
-</table>
+```json
+{
+  "mcpServers": {
+    "vrf": {
+      "command": "python",
+      "args": ["C:\\Users\\Administrator\\Documents\\GitHub\\ValveResourceFormat-MCP\\MCP\\mcp_server.py"],
+      "env": {
+        "VRF_CLI_PATH": "C:\\Users\\Administrator\\Documents\\GitHub\\ValveResourceFormat-MCP\\cli-windows-x64\\Source2Viewer-CLI.exe"
+      }
+    }
+  }
+}
+```
 
-## What's supported?
-- VPK viewer which supports opening and exporting files
-- Creating new vpk archives
-- Model viewer and decompiler to glTF and modeldoc
-- Map viewer and decompiler to glTF and vmap
-- Material decompiler to vmat
-- Sound player
-- Binary KeyValues3 parser
-- NTRO support
+### 3. Restart Cursor
 
-## Limitations
+After saving the configuration, restart Cursor to activate the MCP server.
 
-This tool is based entirely on a reverse engineered effort because Valve does not provide any documentation or Source 2 code (SDK or engine code), while the Source 1 SDK and leaked engine code are helpful, a lot of systems and formats have changed.
+## Supported Tools
 
-The code contained in this repository is based on countless hours of reverse engineering Source 2 games and not all intricate details have been figured out.
+| Tool | Description |
+|------|-------------|
+| `inspect_file` | Inspect resource file structure (supports VPK internal files) |
+| `list_vpk_contents` | List VPK archive contents |
+| `decompile_resource` | Decompile a single resource (supports VPK internal files) |
+| `decompile_vpk` | Batch decompile VPK archive |
+| `export_gltf` | Export 3D model to glTF (supports VPK internal files) |
+| `export_gltf_advanced` | Advanced glTF export with filtering options |
+| `extract_texture` | Extract texture to image (supports VPK internal files) |
+| `verify_vpk` | Verify VPK integrity and signatures |
+| `collect_stats` | Collect resource statistics |
+| `get_file_info` | Get file information |
+| `list_directory_resources` | List resource files in a directory |
 
-If you are interested in helping, take a look at the open issues and join our Discord.
+## Path Formats
 
-Not all formats are 100% supported, some parameters are still unknown and not fully understood.
+MCP supports two path formats:
 
-## Supported resource types
-Ext           | Name                              | Support
-------------- | --------------------------------- | -------
-vagrp         | Animation Group                   | 👍
-vanim         | Animation                         | 👍
-vanmgrph      | Animation Graph                   | 👍
-vcd           | Choreo                            | 👍
-vcdlist       | Choreo Scene File Data            | 👍
-vcompmat      | Composite Material                | 👍
-vcss          | Panorama Style                    | 👍
-vdata         | Data                              | 👍
-vents         | EntityLump                        | 👍
-vjs           | Panorama Script                   | 👍
-vmap          | Map                               | 👍
-vmat          | Material                          | 👍
-vmdl          | Model                             | 👍
-vmesh         | Mesh                              | 👍
-vmix          | VMix                              | 👍
-vmorf         | MorphSet                          | 👍
-vnmclip       | NmClip                            | 👍
-vnmgrph       | NmGraph                           | 👍
-vnmskel       | NmSkeleton                        | 👍
-vnmvar        | NmGraph Variation                 | 👍
-vpcf          | Particle System                   | 👍
-vpdi          | Panorama Dynamic Images           | No
-vphys         | Physics Collision Mesh            | 👍
-vpost         | Postprocessing Settings           | 👍
-vpram         | Processing Graph Instance         | 👍
-vpsf          | Particle Snapshot                 | 👍
-vpulse        | Pulse Graph Definition            | 👍
-vrman         | ResourceManifest                  | 👍
-vrmap         | Resource Remap Table              | No
-vrr           | Response Rules                    | 👍
-vseq          | Sequence Group                    | No
-vsmart        | Smart Prop                        | Partially
-vsnap         | Particle Snapshot                 | 👍
-vsnd          | Sound                             | 👍
-vsndevts      | Sound Event Script                | 👍
-vsndstck      | Sound Stack Script                | 👍
-vsurf         | Surface Properties                | No
-vsvg          | Panorama Vector Graphic           | 👍
-vtex          | Compiled Texture                  | 👍
-vts           | Panorama TypeScript               | 👍
-vvis          | World Visibility                  | No
-vwnod         | World Node                        | 👍
-vwrld         | World                             | 👍
-vxml          | Panorama Layout                   | 👍
-&nbsp;        | &nbsp;                            | &nbsp;
-csgoitem      | CSGO Item                         | 👍
-econitem      | CSGO Economy Item                 | 👍
-herolist      | Dota Hero List                    | 👍
-item          | Artifact Item                     | 👍
-vdpn          | Dota Patch Notes                  | 👍
-vdvn          | Dota Visual Novels                | 👍
-&nbsp;        | &nbsp;                            | &nbsp;
-bin           | Tools Asset Info                  | 👍 Handled by `ToolsAssetInfo`
-dat           | Closed Captions                   | 👍 Handled by `ClosedCaptions`
-vcs           | Compiled Shader                   | 👍 Handled by `CompiledShader`
-vdacdefs      | DAC Game Defs Data                | No
-vfe           | Flex Scene File                   | 👍 Handled by `FlexSceneFile`
-vfont         | Bitmap Font                       | 👍 Decrypts `VFONT1`, supported in Source 1 and Source 2.
-vpk           | Pak (package)                     | 👍 Handled by [ValvePak](https://github.com/ValveResourceFormat/ValvePak)
+**Regular path**:
+```
+G:\SteamLibrary\steamapps\common\Counter-Strike Global Offensive\game\csgo\models\player\t_model.mdl_c
+```
 
-## List of supported magics
-Magic        | Description
------------- | ------------
-`0x03564B56` | VKV\x03 - First binary keyvalues 3 encoding with custom block compression
-`0x4B563301` | KV3\x01 - Binary keyvalues 3 (version 1)
-`0x4B563302` | KV3\x02 - Binary keyvalues 3 (version 2)
-`0x4B563303` | KV3\x03 - Binary keyvalues 3 (version 3)
-`0x4B563304` | KV3\x04 - Binary keyvalues 3 (version 4)
-`0x4B563305` | KV3\x05 - Binary keyvalues 3 (version 5)
-`0x564B4256` | VBKV - binary keyvalues 1 (handled by ValveKeyvalue)
-`0x55AA1234` | VPK - valve package (handled by ValvePak)
-`0x44434356` | VCCD - closed captions
-`0xC4CCACE8` | tools asset info
-`0xC4CCACE9` | tools asset info (newer version)
-`0x32736376` | vcs2 - compiled shader
-`0x31415926` | murmurhash2 seed used by StringToken
-`0xEDABCDEF` | murmurhash64 seed used to encode resource IDs
-`VFONT1`     | "encrypted" font file
-`0x00564645` | VFE - flex scene file
+**VPK internal path** (format: `vpk_path::internal_path`):
+```
+G:\SteamLibrary\steamapps\common\Counter-Strike Global Offensive\game\csgo\pak01_dir.vpk::models/player/t_model.vmdl_c
+```
 
-# GUI
+Most tools support the VPK internal path format.
 
-Source 2 Viewer keeps its settings in `%LocalAppData%/Source2Viewer/settings.vdf`.
+## Usage Examples
 
-# Misc
+### Inspect a file inside a VPK
 
-## License
+```
+inspect_file({
+  "file_path": "G:\\SteamLibrary\\steamapps\\common\\Counter-Strike Global Offensive\\game\\csgo\\pak01_dir.vpk::characters/models/ctm_diver/materials/ctm_diver_body_varianta.vmat_c"
+})
+```
 
-Contents of this repository are available under [MIT license](LICENSE), except for `Tests/Files` folder contains files which have likely come from Valve's games.
+### List VPK contents
 
-## Code signing policy
+```
+list_vpk_contents({
+  "vpk_path": "G:\\SteamLibrary\\steamapps\\common\\Counter-Strike Global Offensive\\game\\csgo\\pak01_dir.vpk",
+  "extension_filter": "vmdl_c,vmat_c",
+  "path_filter": "characters/models/ctm_diver/"
+})
+```
 
-Free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org).
+### Decompile a resource from VPK
+
+```
+decompile_resource({
+  "input_path": "G:\\SteamLibrary\\steamapps\\common\\Counter-Strike Global Offensive\\game\\csgo\\pak01_dir.vpk::characters/models/ctm_diver/materials/ctm_diver_body_varianta.vmat_c",
+  "output_path": "C:\\temp\\output.vmat"
+})
+```
+
+### Export a model from VPK to glTF
+
+```
+export_gltf({
+  "model_path": "G:\\SteamLibrary\\steamapps\\common\\Counter-Strike Global Offensive\\game\\csgo\\pak01_dir.vpk::characters/models/ctm_diver/ctm_diver_varianta.vmdl_c",
+  "output_path": "C:\\temp\\model.glb",
+  "include_animations": true,
+  "include_materials": true
+})
+```
+
+### Advanced glTF export
+
+```
+export_gltf_advanced({
+  "model_path": "characters/models/ctm_diver/ctm_diver_varianta.vmdl_c",
+  "output_path": "C:\\temp\\model_adv.glb",
+  "vpk_path": "G:\\SteamLibrary\\steamapps\\common\\Counter-Strike Global Offensive\\game\\csgo\\pak01_dir.vpk",
+  "include_animations": true,
+  "include_materials": true,
+  "animation_list": "idle,walk",
+  "mesh_list": "body,default_gloves"
+})
+```
+
+### Extract texture from VPK
+
+```
+extract_texture({
+  "texture_path": "G:\\SteamLibrary\\steamapps\\common\\Counter-Strike Global Offensive\\game\\csgo\\pak01_dir.vpk::characters/models/ctm_diver/ctm_diver_varianta/body_vmorf.vtex_c",
+  "output_path": "C:\\temp\\texture.png",
+  "decode_flags": "auto"
+})
+```
+
+### Batch decompile VPK
+
+```
+decompile_vpk({
+  "vpk_path": "G:\\SteamLibrary\\steamapps\\common\\Counter-Strike Global Offensive\\game\\csgo\\pak01_dir.vpk",
+  "output_path": "C:\\temp\\decompiled",
+  "extension_filter": "vmat_c",
+  "path_filter": "characters/models/ctm_diver/",
+  "recursive": false
+})
+```
+
+### Verify VPK integrity
+
+```
+verify_vpk({
+  "vpk_path": "G:\\SteamLibrary\\steamapps\\common\\Counter-Strike Global Offensive\\game\\csgo\\pak01_dir.vpk"
+})
+```
+
+### Collect resource statistics
+
+```
+collect_stats({
+  "input_path": "G:\\SteamLibrary\\steamapps\\common\\Counter-Strike Global Offensive\\game\\csgo\\pak01_dir.vpk",
+  "include_files": false,
+  "particles": true
+})
+```
+
+### List resource files in directory
+
+```
+list_directory_resources({
+  "directory": "G:\\SteamLibrary\\steamapps\\common\\Counter-Strike Global Offensive\\game\\csgo",
+  "extension_filter": "vmdl_c,vmat_c",
+  "recursive": true
+})
+```
+
+## Notes
+
+### CLI Output Directory
+
+When exporting glTF, extracting textures, or decompiling resources, the CLI creates subdirectories based on the resource path inside the VPK. For example:
+
+```
+output_path: C:\temp\model.glb
+actual output: C:\temp\model.glb\characters\models\ctm_diver\ctm_diver_varianta.glb
+```
+
+This is the CLI's built-in behavior and cannot be controlled by MCP. Please keep this in mind when specifying output_path.
+
+## System Requirements
+
+- Python 3.10+
+- Windows/macOS/Linux
+- ValveResourceFormat CLI
