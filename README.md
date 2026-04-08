@@ -12,7 +12,7 @@ Download the latest CLI from [ValveResourceFormat Releases](https://github.com/V
 
 ### 2. Configure Cursor
 
-Edit `C:\Users\Administrator\.cursor\mcp.json` and add the following configuration (update paths to match your setup):
+Edit `C:\Users\Administrator\.cursor\mcp.json` (Cursor) or `C:\Users\Administrator\.claude\mcp.json` (Claude Code) and add the following configuration (update paths to match your setup):
 
 ```json
 {

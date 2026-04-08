@@ -10,9 +10,9 @@
 
 前往 [ValveResourceFormat Releases](https://github.com/ValveResourceFormat/ValveResourceFormat/releases) 下载最新版 CLI（选择 `Source2Viewer-CLI-win-x.x.zip`）。
 
-### 2. 配置 Cursor
+### 2. 配置 Cursor / Claude Code
 
-编辑 `C:\Users\Administrator\.cursor\mcp.json`，添加以下配置（将路径改为你的实际路径）：
+编辑 `C:\Users\Administrator\.cursor\mcp.json`（Cursor）或 `C:\Users\Administrator\.claude\mcp.json`（Claude Code），添加以下配置（将路径改为你的实际路径）：
 
 ```json
 {
