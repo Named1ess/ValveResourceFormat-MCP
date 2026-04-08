@@ -35,30 +35,17 @@ jobs:
         run: |
           dotnet publish vrf-source/CLI/CLI.csproj -c Release -r win-x64 --self-contained -o ./publish-cli
 
-      # 5. 将编译产物同步到你的仓库
-      - name: Push to my repo root
-        shell: pwsh
-        run: |
-          # 1. 切换到你的仓库目录
-          cd $env:GITHUB_WORKSPACE/my-repo
-          
-          # 2. 将编译好的文件直接拷贝到仓库根目录下的 vrf-release 文件夹
-          # 如果你想直接丢在根目录，就把 "vrf-release/" 改成 "./"
-          New-Item -ItemType Directory -Force -Path vrf-release
-          Copy-Item -Path "$env:GITHUB_WORKSPACE/publish-cli/*" -Destination "./" -Recurse -Force
-          
-          # 3. 配置 Git 信息
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          
-          # 4. 添加、提交并推送
-          git add .
-          
-          # 只有在有变化时才提交，避免 Action 报错
-          $status = git status --porcelain
-          if ($null -ne $status) {
-              git commit -m "Auto-compiled VRF binaries"
-              git push
-          } else {
-              Write-Host "No changes to commit, files are already up to date."
-          }
+      # 5. 修改方案：不再使用 Git Push，而是创建 GitHub Release
+      - name: Create Release and Upload Asset
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.run_number }}
+          name: "Auto-compiled VRF Build #${{ github.run_number }}"
+          body: "This is an automated build of ValveResourceFormat CLI."
+          draft: false
+          prerelease: false
+          # 这里指定你要上传的大文件路径
+          files: |
+            ./publish-cli/Source2Viewer-CLI.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
