@@ -1,5 +1,7 @@
 # ValveResourceFormat MCP Server
 
+[English](./README.md) | 中文版
+
 一个让 AI 工具（如 Cursor）能够与 Valve Source 2 资源格式交互的 MCP 服务器。
 
 ## 快速开始

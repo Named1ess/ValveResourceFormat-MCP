@@ -1,5 +1,7 @@
 # ValveResourceFormat MCP Server
 
+[中文版](./README_zh.md) | English
+
 An MCP server that enables AI tools (like Cursor) to interact with Valve Source 2 resource formats.
 
 ## Quick Start
