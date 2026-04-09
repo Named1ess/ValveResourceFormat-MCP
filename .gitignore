@@ -1,3 +1,4 @@
 /cli-windows-x64
 /.vs
 /.claude
+/__pycache__
