@@ -9,6 +9,7 @@ import os
 import sys
 import json
 import subprocess
+import concurrent.futures
 from pathlib import Path
 from typing import Optional, Any
 
@@ -30,6 +31,8 @@ except ImportError:
 
 # 全局配置
 VRF_CLI_PATH: Optional[str] = None
+_thread_count: int = 1
+_executor: Optional[Any] = None
 
 
 def get_cli_path() -> str:
@@ -626,34 +629,16 @@ async def handle_list_vpk_contents(args: dict) -> dict:
 
 
 async def handle_inspect_file(args: dict) -> dict:
-    """检查资源文件"""
+    """检查资源文件（inspect_block 的便捷封装）"""
     file_path = args.get("file_path")
     if not file_path:
         return {"success": False, "error": "file_path 是必填参数"}
 
-    # 处理 VPK 内部路径格式
-    if "::" in file_path:
-        parts = file_path.split("::", 1)
-        vpk_path = parts[0]
-        internal_path = parts[1] if len(parts) > 1 else ""
-        cli_args = ["-i", vpk_path, "--vpk_filepath", internal_path, "-a"]
-    else:
-        cli_args = ["-i", file_path]
-
-    returncode, stdout, stderr = await run_cli_async(cli_args)
-
-    if returncode != 0:
-        return {
-            "success": False,
-            "error": stderr or "无法检查文件",
-            "file": file_path
-        }
-
-    return {
-        "success": True,
-        "file": file_path,
-        "output": stdout
-    }
+    # 调用 inspect_block 并启用 print_all
+    return await handle_inspect_block({
+        "file_path": file_path,
+        "print_all": True
+    })
 
 
 async def handle_decompile_resource(args: dict) -> dict:
@@ -694,7 +679,7 @@ async def handle_decompile_resource(args: dict) -> dict:
 
 
 async def handle_export_gltf(args: dict) -> dict:
-    """导出 glTF"""
+    """导出 glTF（gltf_export 的便捷封装，固定输出 glb 格式）"""
     model_path = args.get("model_path")
     output_path = args.get("output_path")
 
@@ -706,46 +691,14 @@ async def handle_export_gltf(args: dict) -> dict:
     include_animations = args.get("include_animations", True)
     include_materials = args.get("include_materials", True)
 
-    # 处理 VPK 内部路径格式
-    if "::" in model_path:
-        parts = model_path.split("::", 1)
-        vpk_path = parts[0]
-        internal_path = parts[1] if len(parts) > 1 else ""
-        cli_args = [
-            "-i", vpk_path,
-            "--vpk_filepath", internal_path,
-            "-d",
-            "--gltf_export_format", "glb",
-            "-o", output_path
-        ]
-    else:
-        cli_args = [
-            "-i", model_path,
-            "-d",
-            "--gltf_export_format", "glb",
-            "-o", output_path
-        ]
-
-    if include_animations:
-        cli_args.append("--gltf_export_animations")
-    if include_materials:
-        cli_args.append("--gltf_export_materials")
-
-    returncode, stdout, stderr = await run_cli_async(cli_args, timeout=180)
-
-    if returncode != 0:
-        return {
-            "success": False,
-            "error": stderr or "无法导出 glTF",
-            "input": model_path
-        }
-
-    return {
-        "success": True,
-        "input": model_path,
-        "output": output_path,
-        "format": "glb"
-    }
+    # 调用 gltf_export，固定 format 为 glb
+    return await handle_gltf_export({
+        "model_path": model_path,
+        "output_path": output_path,
+        "format": "glb",
+        "include_animations": include_animations,
+        "include_materials": include_materials
+    })
 
 
 async def handle_export_gltf_advanced(args: dict) -> dict:
@@ -1060,6 +1013,9 @@ async def handle_inspect_block(args: dict) -> dict:
         cli_args.append("-a")
     elif block_name:
         cli_args.extend(["-b", block_name])
+    else:
+        # 无参数时默认打印所有块
+        cli_args.append("-a")
 
     returncode, stdout, stderr = await run_cli_async(cli_args, timeout=120)
 
@@ -1079,15 +1035,24 @@ async def handle_inspect_block(args: dict) -> dict:
 
 async def handle_set_threads(args: dict) -> dict:
     """设置线程数"""
+    global _thread_count, _executor
+
     thread_count = args.get("thread_count", 1)
 
     if thread_count < 1:
         return {"success": False, "error": "线程数必须大于 0"}
 
+    # 关闭旧 executor，创建新的
+    if _executor is not None and not _executor._shutdown:
+        _executor.shutdown(wait=False)
+    _executor = None
+
+    _thread_count = thread_count
+
     return {
         "success": True,
         "thread_count": thread_count,
-        "message": f"线程数已设置为 {thread_count}"
+        "message": f"线程数已设置为 {thread_count}，后续操作将使用新线程池"
     }
 
 
@@ -1267,10 +1232,19 @@ def _format_size(size: int) -> str:
     return f"{size:.2f} TB"
 
 
+def get_executor() -> Any:
+    """获取或创建线程池 executor"""
+    global _executor, _thread_count
+    if _executor is None or _executor._shutdown:
+        _executor = concurrent.futures.ThreadPoolExecutor(max_workers=_thread_count)
+    return _executor
+
+
 async def run_cli_async(args: list[str], timeout: int = 60) -> tuple[int, str, str]:
     """异步执行 CLI"""
     loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(None, run_cli, args, timeout)
+    executor = get_executor()
+    return await loop.run_in_executor(executor, run_cli, args, timeout)
 
 
 # ============================================================
@@ -1279,8 +1253,6 @@ async def run_cli_async(args: list[str], timeout: int = 60) -> tuple[int, str, s
 
 async def main():
     """主入口点"""
-    import asyncio
-
     # 检查 CLI 是否可用
     try:
         get_cli_path()
