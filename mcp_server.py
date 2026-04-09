@@ -33,6 +33,7 @@ except ImportError:
 VRF_CLI_PATH: Optional[str] = None
 _thread_count: int = 1
 _executor: Optional[Any] = None
+_executor_shutdown: bool = False
 
 
 def get_cli_path() -> str:
@@ -187,11 +188,15 @@ def create_tools() -> list[Tool]:
                 "properties": {
                     "model_path": {
                         "type": "string",
-                        "description": "模型文件路径（.vmdl）"
+                        "description": "模型文件路径（.vmdl）或 VPK 内部路径"
                     },
                     "output_path": {
                         "type": "string",
                         "description": "输出 glTF/glb 文件路径"
+                    },
+                    "vpk_path": {
+                        "type": "string",
+                        "description": "如果 model_path 是内部路径，需要指定此 VPK 路径"
                     },
                     "include_animations": {
                         "type": "boolean",
@@ -220,6 +225,11 @@ def create_tools() -> list[Tool]:
                     "output_path": {
                         "type": "string",
                         "description": "输出 glTF/glb 文件路径"
+                    },
+                    "format": {
+                        "type": "string",
+                        "description": "导出格式，gltf 或 glb",
+                        "default": "glb"
                     },
                     "vpk_path": {
                         "type": "string",
@@ -697,12 +707,13 @@ async def handle_export_gltf(args: dict) -> dict:
         "output_path": output_path,
         "format": "glb",
         "include_animations": include_animations,
-        "include_materials": include_materials
+        "include_materials": include_materials,
+        "vpk_path": args.get("vpk_path")
     })
 
 
 async def handle_export_gltf_advanced(args: dict) -> dict:
-    """高级 glTF 导出"""
+    """高级 glTF 导出（gltf_export 的封装）"""
     model_path = args.get("model_path")
     output_path = args.get("output_path")
 
@@ -711,56 +722,19 @@ async def handle_export_gltf_advanced(args: dict) -> dict:
     if not output_path:
         return {"success": False, "error": "output_path 是必填参数"}
 
-    include_animations = args.get("include_animations", True)
-    include_materials = args.get("include_materials", True)
-    animation_list = args.get("animation_list")
-    mesh_list = args.get("mesh_list")
-    textures_adapt = args.get("textures_adapt", False)
-    export_extras = args.get("export_extras", False)
-    vpk_path = args.get("vpk_path")
-    format_type = args.get("format", "glb")
-
-    # 处理 VPK 内部路径格式
-    if "::" in model_path:
-        parts = model_path.split("::", 1)
-        actual_vpk_path = parts[0]
-        internal_path = parts[1] if len(parts) > 1 else ""
-        cli_args = ["-i", actual_vpk_path, "--vpk_filepath", internal_path, "-d"]
-    elif vpk_path:
-        cli_args = ["-i", vpk_path, "--vpk_filepath", model_path, "-d"]
-    else:
-        cli_args = ["-i", model_path, "-d"]
-
-    cli_args.extend(["--gltf_export_format", format_type, "-o", output_path])
-
-    if include_animations:
-        cli_args.append("--gltf_export_animations")
-    if include_materials:
-        cli_args.append("--gltf_export_materials")
-    if animation_list:
-        cli_args.extend(["--gltf_animation_list", animation_list])
-    if mesh_list:
-        cli_args.extend(["--gltf_mesh_list", mesh_list])
-    if textures_adapt:
-        cli_args.append("--gltf_textures_adapt")
-    if export_extras:
-        cli_args.append("--gltf_export_extras")
-
-    returncode, stdout, stderr = await run_cli_async(cli_args, timeout=180)
-
-    if returncode != 0:
-        return {
-            "success": False,
-            "error": stderr or "无法导出 glTF",
-            "input": model_path
-        }
-
-    return {
-        "success": True,
-        "input": model_path,
-        "output": output_path,
-        "format": "glb"
-    }
+    # 调用 gltf_export，传递所有参数
+    return await handle_gltf_export({
+        "model_path": model_path,
+        "output_path": output_path,
+        "format": args.get("format", "glb"),
+        "include_animations": args.get("include_animations", True),
+        "include_materials": args.get("include_materials", True),
+        "animation_list": args.get("animation_list"),
+        "mesh_list": args.get("mesh_list"),
+        "textures_adapt": args.get("textures_adapt", False),
+        "export_extras": args.get("export_extras", False),
+        "vpk_path": args.get("vpk_path"),
+    })
 
 
 async def handle_extract_texture(args: dict) -> dict:
@@ -1035,7 +1009,7 @@ async def handle_inspect_block(args: dict) -> dict:
 
 async def handle_set_threads(args: dict) -> dict:
     """设置线程数"""
-    global _thread_count, _executor
+    global _thread_count, _executor, _executor_shutdown
 
     thread_count = args.get("thread_count", 1)
 
@@ -1043,8 +1017,9 @@ async def handle_set_threads(args: dict) -> dict:
         return {"success": False, "error": "线程数必须大于 0"}
 
     # 关闭旧 executor，创建新的
-    if _executor is not None and not _executor._shutdown:
+    if _executor is not None and not _executor_shutdown:
         _executor.shutdown(wait=False)
+        _executor_shutdown = True
     _executor = None
 
     _thread_count = thread_count
@@ -1234,9 +1209,10 @@ def _format_size(size: int) -> str:
 
 def get_executor() -> Any:
     """获取或创建线程池 executor"""
-    global _executor, _thread_count
-    if _executor is None or _executor._shutdown:
+    global _executor, _thread_count, _executor_shutdown
+    if _executor is None or _executor_shutdown:
         _executor = concurrent.futures.ThreadPoolExecutor(max_workers=_thread_count)
+        _executor_shutdown = False
     return _executor
 
 
